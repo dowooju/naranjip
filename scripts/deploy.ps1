@@ -22,6 +22,9 @@ try {
     if (!$Image) { throw 'Specify -Build or -Image ghcr.io/OWNER/naranjip:sha-COMMIT.' }
     if ($Image -notmatch '^[a-zA-Z0-9][a-zA-Z0-9._/@:-]+$') { throw 'Invalid image reference.' }
     Invoke-Checked -Command kubectl -Arguments @('--context', $Context, 'apply', '-f', 'k8s/namespace.yaml')
+    Invoke-Checked -Command kubectl -Arguments @('--context', $Context, '-n', 'room-demo', 'get', 'secret', 'naranjip-auth', '-o', 'name')
+    Invoke-Checked -Command kubectl -Arguments @('--context', $Context, 'apply', '-f', 'k8s/postgres.yaml')
+    Invoke-Checked -Command kubectl -Arguments @('--context', $Context, '-n', 'room-demo', 'rollout', 'status', 'statefulset/postgres', '--timeout=240s')
     # Set the final image before apply, avoiding an intermediate rollout of a local placeholder.
     $manifest = Get-Content -LiteralPath 'k8s/deployment.yaml' -Raw
     $manifest.Replace('naranjip:local', $Image) | & kubectl --context $Context apply -f -

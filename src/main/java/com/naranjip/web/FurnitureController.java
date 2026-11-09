@@ -12,11 +12,11 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api")
 public class FurnitureController {
-    private final DemoController auth;
+    private final AuthController auth;
     private final FurnitureService service;
     private final FurnitureCatalog catalog;
     private final AssetStorage assets;
-    public FurnitureController(DemoController auth, FurnitureService service, FurnitureCatalog catalog, AssetStorage assets) {
+    public FurnitureController(AuthController auth, FurnitureService service, FurnitureCatalog catalog, AssetStorage assets) {
         this.auth = auth; this.service = service; this.catalog = catalog; this.assets = assets;
     }
     @GetMapping("/catalog") public Map<String, Object> catalog() {
@@ -40,7 +40,7 @@ public class FurnitureController {
         authorize(houseId, request); return service.delete(houseId, id, revision, cascade);
     }
     private void authorize(String houseId, HttpServletRequest request) {
-        DemoController.Resident user = auth.me(request).user();
+        AuthController.Resident user = auth.me(request).user();
         if (user == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         if (!user.houseId().equals(houseId)) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
     }

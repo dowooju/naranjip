@@ -1,0 +1,5 @@
+#auth-form .field-error { color: #b42338; font-size: 12px; line-height: 1.5; margin: 4px 0 9px; min-height: 0; }
+#auth-form .field-error:empty { display: none; }
+#auth-form input[aria-invalid="true"] { border: 2px solid #c33247; background: #fff5f6; }
+#auth-form .form-error { color: #b42338; }
+#auth-form button:disabled { opacity: .65; cursor: wait; }

@@ -1,4 +1,5 @@
 import { createScene } from './furniture-scene.js';
+import { apiFetch } from './api-client.js';
 import { floorCell, validatePlacement, automaticPlacement } from './placement.js';
 
 export function editorMarkup() {
@@ -21,7 +22,7 @@ export async function mountEditor(root, initialHouse, toast) {
   const abort = new AbortController();
   const on = (target, name, handler, options = {}) => target.addEventListener(name, handler, {...options,signal:abort.signal});
   async function request(path, options) {
-    const response = await fetch(path, options);
+    const response = await apiFetch(path, options);
     if (!response.ok) {
       let message = response.status === 401 ? '로그인이 만료됐어요. 홈에서 다시 로그인해 주세요.' : '변경을 저장하지 못했어요.';
       try { message = (await response.json()).message || message; } catch {}

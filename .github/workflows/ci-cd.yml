@@ -29,7 +29,7 @@ jobs:
         with:
           node-version: '22'
       - name: Test placement previews
-        run: node --test scripts/placement.test.mjs
+        run: node --test scripts/placement.test.mjs scripts/auth-validation.test.mjs
 
   publish:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
