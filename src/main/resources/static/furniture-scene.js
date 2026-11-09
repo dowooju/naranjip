@@ -1,5 +1,6 @@
 import { roomSvg } from './room.js';
 import { dimensions, iso } from './placement.js';
+import { furnitureMatrix } from './sprite-projection.js';
 
 function loadImage(url) {
   return new Promise((resolve, reject) => {
@@ -38,33 +39,31 @@ export async function createScene(canvas, house, catalog, editing = false) {
   const context = canvas.getContext('2d');
   let state = house, selected = null, preview = null, zoom = 1, transform = { scale: 1, x: 0, y: 0 }, hits = [], disposed = false;
 
-  function anchor(item) {
-    const type = types.get(item.typeId);
-    if (type.kind === 'attachment') {
-      const parent = state.furniture.find(p => p.id === item.parentId);
-      if (!parent) return {x:0,y:0};
-      const base = anchor(parent);
-      if (type.id === 'frame') return { x: base.x + (item.slot === 0 ? -16 : 16), y: base.y - 50 };
-      return { x: base.x + (item.slot === 1 ? -9 : item.slot === 2 ? 9 : 0), y: base.y - (item.slot === 0 ? 65 : 42) };
-    }
-    if (type.kind === 'wall') return item.wall === 'left' ? iso(0, item.y + .5) : iso(item.x + .5, 0);
-    const [w, h] = dimensions(type, item.rotation);
-    return iso(item.x + w / 2, item.y + h / 2);
+  function matrix(item) {
+    const type=types.get(item.typeId), sprite=sprites.get(type.id);
+    if(type.kind!=='attachment')return furnitureMatrix(item,type,sprite);
+    const saved=state.furniture.find(p=>p.id===item.parentId);
+    if(!saved)return new DOMMatrix();
+    const parent=preview?.item.id===saved.id?preview.item:saved;
+    const parentSprite=sprites.get(parent.typeId);
+    const slots=type.id==='frame'?[[.38,.28],[.68,.38]]:[[.28,.38],[.17,.63],[.43,.67]];
+    const [u,v]=slots[item.slot]||slots[0];
+    const scale=parentSprite.sw*(type.id==='frame'?.20:.19)/sprite.sw;
+    return matrix(parent).translate(u*parentSprite.sw-sprite.sw*scale/2,v*parentSprite.sh-sprite.sh*scale).scale(scale);
   }
   function bounds(item) {
-    const type = types.get(item.typeId), sprite = sprites.get(type.id), base = anchor(item);
-    const scale = Math.min(type.drawWidth / sprite.sw, type.drawHeight / sprite.sh);
-    const width = sprite.sw * scale, height = sprite.sh * scale;
-    return {x: base.x - width / 2, y: base.y - height + (type.kind === 'rug' ? height / 2 : 7), width, height};
+    const sprite=sprites.get(item.typeId), m=matrix(item);
+    const corners=[[0,0],[sprite.sw,0],[sprite.sw,sprite.sh],[0,sprite.sh]].map(([x,y])=>m.transformPoint({x,y}));
+    const x=Math.min(...corners.map(p=>p.x)),y=Math.min(...corners.map(p=>p.y));
+    return {x,y,width:Math.max(...corners.map(p=>p.x))-x,height:Math.max(...corners.map(p=>p.y))-y};
   }
   function drawItem(item, alpha = 1, ghost = false) {
-    const sprite = sprites.get(item.typeId), rect = bounds(item);
-    const flip = item.rotation % 180 === 90;
+    const sprite = sprites.get(item.typeId), rect = bounds(item), m=matrix(item);
     context.save();
     context.globalAlpha = alpha;
     if (!ghost && selected === item.id) { context.shadowColor = '#dc4c98'; context.shadowBlur = 8; }
-    if (flip) { context.translate(rect.x + rect.width, rect.y); context.scale(-1, 1); }
-    context.drawImage(atlas, sprite.sx, sprite.sy, sprite.sw, sprite.sh, flip ? 0 : rect.x, flip ? 0 : rect.y, rect.width, rect.height);
+    context.transform(m.a,m.b,m.c,m.d,m.e,m.f);
+    context.drawImage(atlas, sprite.sx, sprite.sy, sprite.sw, sprite.sh, 0,0,sprite.sw,sprite.sh);
     context.restore();
     if (!ghost) hits.push({item, rect});
   }
@@ -80,11 +79,11 @@ export async function createScene(canvas, house, catalog, editing = false) {
     } else if (type.kind === 'wall') {
       const a = item.wall === 'left' ? iso(0,item.y) : iso(item.x,0);
       const b = item.wall === 'left' ? iso(0,item.y+1) : iso(item.x+1,0);
-      polygon([a,b,{x:b.x,y:b.y-142},{x:a.x,y:a.y-142}], valid ? '#f67ca955' : '#6e587b66', valid ? '#f04890' : '#6e587b');
+      polygon([a,b,{x:b.x,y:b.y-142},{x:a.x,y:a.y-142}], valid ? '#4d9eff66' : '#6e587b66', valid ? '#2279e6' : '#6e587b');
     } else {
       for (let y=0;y<h;y++) for(let x=0;x<w;x++) polygon([
         iso(item.x+x,item.y+y),iso(item.x+x+1,item.y+y),iso(item.x+x+1,item.y+y+1),iso(item.x+x,item.y+y+1)
-      ],valid ? '#f85b8c88' : '#65577977',valid ? '#d32663' : '#594d6d');
+      ],valid ? '#4d9eff88' : '#65577977',valid ? '#2279e6' : '#594d6d');
     }
   }
   function draw() {
@@ -109,11 +108,13 @@ export async function createScene(canvas, house, catalog, editing = false) {
     for (const item of parents) {
       if (types.get(item.typeId).kind === 'rug') continue;
       drawItem(item,preview?.item.id===item.id ? .3 : 1);
-      for(const child of state.furniture.filter(child=>child.parentId===item.id).sort((a,b)=>a.slot-b.slot)) drawItem(child);
+      if(preview?.item.id!==item.id)for(const child of state.furniture.filter(child=>child.parentId===item.id).sort((a,b)=>a.slot-b.slot)) drawItem(child);
     }
     if (preview && (types.get(preview.item.typeId).kind !== 'attachment' || preview.item.parentId)) {
       drawItem(preview.item,preview.valid ? .7 : .35,true);
+      for(const child of state.furniture.filter(child=>child.parentId===preview.item.id))drawItem(child,preview.valid?.7:.35,true);
     }
+    canvas.dispatchEvent(new Event('scenechange'));
   }
   const observer = new ResizeObserver(draw); observer.observe(canvas);
   draw();
@@ -123,16 +124,20 @@ export async function createScene(canvas, house, catalog, editing = false) {
     select(id) { selected=id; draw(); },
     preview(value) { preview=value; draw(); },
     zoom(value) { zoom=value; draw(); },
+    screenBounds(item) {
+      const b=bounds(item),r=canvas.getBoundingClientRect();
+      return {x:r.left+transform.x+b.x*transform.scale,y:r.top+transform.y+b.y*transform.scale,width:b.width*transform.scale,height:b.height*transform.scale};
+    },
     point(event) { const rect=canvas.getBoundingClientRect(); return {x:(event.clientX-rect.left-transform.x)/transform.scale,y:(event.clientY-rect.top-transform.y)/transform.scale}; },
     hit(point, predicate = () => true) {
       for (const hit of [...hits].reverse()) {
         const {rect,item}=hit;
         if (predicate(item) && point.x>=rect.x && point.x<rect.x+rect.width && point.y>=rect.y && point.y<rect.y+rect.height) {
           const sprite=sprites.get(item.typeId);
-          let u=(point.x-rect.x)/rect.width;
-          if(item.rotation%180===90)u=1-u;
-          const sx=sprite.sx+Math.min(sprite.sw-1,Math.floor(u*sprite.sw));
-          const sy=sprite.sy+Math.min(sprite.sh-1,Math.floor((point.y-rect.y)/rect.height*sprite.sh));
+          const local=matrix(item).inverse().transformPoint(point);
+          if(local.x<0||local.y<0||local.x>=sprite.sw||local.y>=sprite.sh)continue;
+          const sx=sprite.sx+Math.floor(local.x);
+          const sy=sprite.sy+Math.floor(local.y);
           if(sourceContext.getImageData(sx,sy,1,1).data[3]>35)return item;
         }
       }
