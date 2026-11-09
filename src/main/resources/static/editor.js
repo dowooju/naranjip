@@ -7,9 +7,9 @@ export function editorMarkup() {
     <header class="editor-toolbar"><div class="editor-title">♡ 우리집 꾸미기 <small>MY LITTLE ROOM STUDIO</small></div><span class="save-status" role="status">가구 불러오는 중…</span><button class="button primary" id="finish-edit">꾸미기 완료 ✓</button></header>
     <div class="editor-body"><div class="editor-room"><div class="editor-hint" role="status">가구를 누르면 중앙의 빈자리에 놓여요.</div><canvas class="room-canvas" tabindex="0" aria-label="집 꾸미기. 가구 선택 후 방향키로 위치 이동, R로 회전, Enter로 배치, Escape로 취소"></canvas>
       <div class="editor-camera"><button data-camera="out" aria-label="축소">−</button><span id="editor-zoom">100%</span><button data-camera="in" aria-label="확대">+</button></div>
-      <div class="object-tools" hidden><button data-object="rotate" aria-label="가구 90도 회전" title="90도 회전 (R)">↻</button><button data-object="delete" aria-label="가구 삭제" title="삭제 (Delete)">×</button></div>
+      <div class="object-tools" hidden><button data-object="rotate" aria-label="가구 방향 바꾸기" title="방향 바꾸기 (R)">↻</button><button data-object="delete" aria-label="가구 삭제" title="삭제 (Delete)">×</button></div>
     </div><aside class="catalog-panel"><h2>✧ 나의 가구 상자</h2><p>누르면 중앙부터 빈자리에 놓여요.<br>액자·쪽지는 왼쪽 가구에 자동으로 붙어요.</p><div class="catalog-filters" aria-label="가구 분류"><button data-filter="all" aria-pressed="true">전체</button><button data-filter="floor" aria-pressed="false">가구</button><button data-filter="decor" aria-pressed="false">소품</button></div><div class="furniture-list"></div></aside></div>
-    <footer class="editor-footer"><span>놓을 때마다 자동 저장 · 서버 재시작 시 초기화</span><span>우클릭: 회전·삭제 / R: 회전 / Esc: 취소</span></footer>
+    <footer class="editor-footer"><span>놓을 때마다 자동 저장 · 다시 로그인해도 그대로</span><span>우클릭: 회전·삭제 / R: 회전 / Esc: 취소</span></footer>
   </section>`;
 }
 
@@ -96,11 +96,11 @@ export async function mountEditor(root, initialHouse, toast) {
       // Only accept points on the actual wall surface or immediately at its base.
       if(point.x<320) {
         const pos=(320-point.x)/32, base=230+pos*16;
-        item.x=0; item.y=Math.floor(pos); item.wall='left'; item.rotation=90;
+        item.x=0; item.y=Math.floor(pos); item.wall='left'; item.rotation=true;
         if(point.y<base-180||point.y>base+22) item.x=-1;
       } else {
         const pos=(point.x-320)/32, base=230+pos*16;
-        item.x=Math.floor(pos); item.y=0; item.wall='right'; item.rotation=0;
+        item.x=Math.floor(pos); item.y=0; item.wall='right'; item.rotation=false;
         if(point.y<base-180||point.y>base+22) item.y=-1;
       }
     }
@@ -143,10 +143,10 @@ export async function mountEditor(root, initialHouse, toast) {
   async function rotate() {
     if(pending||uncertain)return;
     const item=candidate||house.furniture.find(item=>item.id===selected);
-    if(!item) { if(armed) preview({typeId:armed,x:3,y:3,rotation:90}); return; }
+    if(!item) { if(armed) preview({typeId:armed,x:3,y:3,rotation:true}); return; }
     const type=types.get(item.typeId);
     if(type.kind==='wall'||type.kind==='attachment')return;
-    const rotated={...item,rotation:(item.rotation+90)%360};
+    const rotated={...item,rotation:!item.rotation};
     if(armed||drag) { preview(rotated); if(drag)drag.source.rotation=rotated.rotation; }
     else if(validatePlacement(rotated,house,types).valid)await place(rotated);
     else toast('회전하면 경계를 넘거나 다른 가구와 겹쳐요.');
@@ -161,7 +161,7 @@ export async function mountEditor(root, initialHouse, toast) {
     const button=event.target.closest('[data-type]');
     if(!button||event.button!==0||pending||uncertain)return;
     event.preventDefault(); arm(button.dataset.type);
-    drag={source:{typeId:armed,rotation:0},startX:event.clientX,startY:event.clientY,moved:false,fromCatalog:true};
+    drag={source:{typeId:armed,rotation:false},startX:event.clientX,startY:event.clientY,moved:false,fromCatalog:true};
   });
   on(root,'click',event=>{
     const filterButton=event.target.closest('[data-filter]');
@@ -178,7 +178,7 @@ export async function mountEditor(root, initialHouse, toast) {
   on(canvas,'pointerdown',event=>{
     if(event.button!==0||pending||uncertain)return;
     event.preventDefault(); canvas.focus();
-    if(armed) { const source=candidate||{typeId:armed,rotation:0}; place(toCandidate(event,source)); return; }
+    if(armed) { const source=candidate||{typeId:armed,rotation:false}; place(toCandidate(event,source)); return; }
     const hit=scene.hit(scene.point(event));
     if(!hit) { cancel(); return; }
     selected=hit.id; scene.select(selected); showTools();
@@ -192,7 +192,7 @@ export async function mountEditor(root, initialHouse, toast) {
     if(drag) {
       if(Math.hypot(event.clientX-drag.startX,event.clientY-drag.startY)>4)drag.moved=true;
       if(drag.moved&&inside)preview(toCandidate(event,drag.source)); else if(!inside)scene.preview(null);
-    } else if(armed&&inside)preview(toCandidate(event,candidate||{typeId:armed,rotation:0}));
+    } else if(armed&&inside)preview(toCandidate(event,candidate||{typeId:armed,rotation:false}));
   });
   on(window,'pointerup',event=>{
     if(!drag)return;
@@ -216,9 +216,9 @@ export async function mountEditor(root, initialHouse, toast) {
     if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.key)) {
       if(!armed&&!selected)return;
       event.preventDefault();
-      const item={...(candidate||house.furniture.find(item=>item.id===selected)||{typeId:armed,x:3,y:3,rotation:0})};
+      const item={...(candidate||house.furniture.find(item=>item.id===selected)||{typeId:armed,x:3,y:3,rotation:false})};
       if(event.key==='ArrowUp')item.y--; if(event.key==='ArrowDown')item.y++; if(event.key==='ArrowLeft')item.x--; if(event.key==='ArrowRight')item.x++;
-      if(types.get(item.typeId).kind==='wall') { item.wall=item.rotation===90?'left':'right'; if(item.wall==='left')item.x=0;else item.y=0; }
+      if(types.get(item.typeId).kind==='wall') { item.wall=item.rotation?'left':'right'; if(item.wall==='left')item.x=0;else item.y=0; }
       preview(item);
     }
     if(event.key==='Enter'&&candidate) {event.preventDefault();place(candidate);}
