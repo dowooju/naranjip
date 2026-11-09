@@ -7,20 +7,22 @@
 ## 구현된 흐름
 
 - 홈: 왼쪽 명예의 전당 / 이번 주 콘셉트 탭(내용은 준비 중), 가운데 빈 집, 오른쪽 로그인
-- 회원가입 및 로그인: 임의의 아이디로 입장. 비밀번호와 이메일은 서버로 보내거나 저장하지 않음
+- 회원가입 및 로그인: 이메일·아이디·비밀번호로 가입 후 실제 계정 검증. 빈 입력은 필드 아래 빨간 글씨로 안내
 - 로그인 후 우리집 가기, 8×8 고정 시점 빈 집, 확대·축소
-- 전체 화면 꾸미기: 가구 11종 드래그 배치·이동·90도 회전·삭제·붉은 배치 미리보기
+- 전체 화면 꾸미기: 가구 11종 드래그 배치·이동·90도 회전·삭제·파란 배치 미리보기
 - 문은 벽에만 배치, 액자는 책상·쪽지는 냉장고에 부착, 러그는 가구 아래 배치
 - 좋아요, 콘셉트 좋아요, 코멘트 버튼: 준비 중 안내만 표시
 - 새로고침 시 세션 유지, 로그아웃, 세션 없는 집 접근 차단
 
-**실제 회원가입/인증이 아닙니다.** 아이디도 계정 DB에 저장하지 않습니다. 로그인마다 새 체험용 집 ID를 만들며 로그아웃·세션 만료(비활동 2시간)·서버/Pod 재시작 시 세션과 집은 사라집니다. 같은 아이디로 다른 브라우저에서 들어와도 별개 세션입니다. 가구 배치는 서버 메모리에 저장하며 같은 세션의 새로고침에서 유지됩니다. DB, 초대, 공동 편집, 순위 집계, 댓글 저장은 후속 단계입니다.
+회원 정보는 PostgreSQL에 저장합니다. 비밀번호는 BCrypt 해시, 이메일은 AES-256-GCM 암호문과 중복 확인용 HMAC으로 보호합니다. [DB 설계·암호화·실행 안내](docs/AUTH-DATABASE.md)를 확인하세요.
+
+집/가구 배치는 아직 서버 메모리입니다. 같은 서버의 재로그인에서는 계정별 집을 재사용하지만 서버 재시작 시 배치는 초기화됩니다. 세션은 2시간 비활동 또는 서버 재시작 시 만료됩니다. 집 DB 저장, 초대, 공동 편집, 순위 집계, 댓글 저장은 후속 단계입니다.
 
 꾸미기 사용 방법, 배치 규칙, 메모리 저장, S3 교체 구조는 **[꾸미기 개발 문서](docs/ROOM-EDITOR.md)**에서 확인하세요. 가구 이미지는 **[단일 PNG atlas](assets/furniture-atlas.png)**입니다.
 
 ## 기술
 
-Java 21 / Spring Boot 3.5 / Maven Wrapper / HTML·CSS·JavaScript / SVG / Docker / Kubernetes / GitHub Actions. PostgreSQL은 영속 데이터 기능을 만들 때 추가합니다. Google Fonts 연결이 안 되면 시스템 글꼴을 사용합니다.
+Java 21 / Spring Boot 3.5 / Spring Security / JDBC / PostgreSQL 17 / Flyway / Maven Wrapper / HTML·CSS·JavaScript / Docker / Kubernetes / GitHub Actions.
 
 ## 가장 빠른 실행: Rancher Desktop
 
@@ -28,6 +30,7 @@ Rancher Desktop을 실행하고 Kubernetes가 Ready인지 확인하세요. 컨�
 
 ```powershell
 Set-Location -LiteralPath 'C:\Users\LG PC\Desktop\github\naranjip'
+.\scripts\init-auth-secret.ps1
 .\scripts\deploy.ps1 -Build
 kubectl --context rancher-desktop -n room-demo port-forward service/naranjip 8080:80
 ```
@@ -42,17 +45,17 @@ Java 21 설치 후 JAVA_HOME과 PATH를 설정하세요. Maven은 Wrapper가 자
 
 ```powershell
 .\mvnw.cmd -B verify
-$env:DEMO_AUTH_ENABLED='true'
+# DB_URL, DB_USERNAME, DB_PASSWORD, EMAIL_ENCRYPTION_KEY, EMAIL_LOOKUP_KEY 설정 필요
 .\mvnw.cmd spring-boot:run
 ```
 
-macOS/Linux: `DEMO_AUTH_ENABLED=true ./mvnw spring-boot:run`. 개발용 로그인은 기본으로 꺼져 있으며 Kubernetes 매니페스트에서 명시적으로 켭니다.
+macOS/Linux: 동일한 환경변수를 설정하고 `./mvnw spring-boot:run`. 테스트는 H2와 테스트 전용 키를 사용하므로 실제 DB 비밀정보가 필요하지 않습니다.
 
 ## 파일 위치
 
 | 위치 | 역할 |
 | --- | --- |
-| `src/main/java/com/naranjip/web/DemoController.java` | 개발용 로그인·회원가입·세션·빈 집 API |
+| `src/main/java/com/naranjip/web/AuthController.java` | 회원가입·로그인·세션·집 소유권 API |
 | `src/main/resources/static/app.js` | 홈/가입/우리집/수정 화면과 이벤트 |
 | `src/main/resources/static/room.js` | 가구 없는 8×8 SVG 렌더링 |
 | `src/main/resources/static/editor.js`, `furniture-scene.js` | 전체 화면 편집기와 PNG 가구 렌더링 |
@@ -60,7 +63,7 @@ macOS/Linux: `DEMO_AUTH_ENABLED=true ./mvnw spring-boot:run`. 개발용 로그�
 | `src/main/java/com/naranjip/infrastructure/` | 로컬 이미지 접근·메모리 집 저장소 |
 | `assets/furniture-atlas.png` | 생성한 가구 11종 단일 이미지 파일 |
 | `src/main/resources/static/styles.css` | 반응형 화면 스타일 |
-| `src/test/java/com/naranjip/` | 세션, 집 접근, 가입, 개발 모드 테스트 |
+| `src/test/java/com/naranjip/` | 실제 인증·암호화 저장·CSRF·집 접근·배치 테스트 |
 | `Dockerfile`, `k8s/`, `scripts/deploy.ps1` | 컨테이너 빌드·배포·상태 확인 |
 | `.github/workflows/ci-cd.yml` | 테스트 → GHCR 이미지 → 선택형 로컬 CD |
 

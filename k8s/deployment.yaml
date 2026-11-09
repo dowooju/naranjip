@@ -28,8 +28,11 @@ spec:
             - name: http
               containerPort: 8080
           env:
-            - name: DEMO_AUTH_ENABLED
-              value: "true"
+            - name: DB_URL
+              value: "jdbc:postgresql://postgres:5432/naranjip"
+          envFrom:
+            - secretRef:
+                name: naranjip-auth
           resources:
             requests:
               cpu: 100m
