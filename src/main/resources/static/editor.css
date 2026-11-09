@@ -1,0 +1,63 @@
+body.editor-active { overflow: hidden; }
+body.editor-active>.header, body.editor-active>footer { display: none; }
+body.editor-active>main { padding: 0; max-width: none; min-height: 0; }
+.editor-shell { position: fixed; inset: 0; z-index: 5; display: grid; grid-template-columns: minmax(0,1fr); grid-template-rows: 65px minmax(0,1fr) 35px; background: #f8cbdc url('/retro-stars.svg') center / 150px; color: #79506d; }
+.editor-toolbar { display: flex; gap: 18px; align-items: center; padding: 10px 23px; border-bottom: 3px double #c58db0; background: linear-gradient(#fff5fc,#edc5df); box-shadow: 0 3px #fff7; z-index: 2; }
+.editor-title { font-size: 18px; font-weight: bold; white-space: nowrap; color: #a34c83; text-shadow: 1px 1px white; }
+.editor-title small { font-size: 10px; letter-spacing: 2px; display: block; color: #ad7b9e; margin-top: 3px; }
+.editor-toolbar .save-status { margin-left: auto; font-size: 11px; }
+.editor-body { display: grid; grid-template-columns: minmax(0,1fr) 285px; min-height: 0; }
+.editor-room { min-width: 0; min-height: 0; position: relative; display: flex; flex-direction: column; }
+.editor-room .room-canvas { width: 100%; height: 100%; flex: 1; min-height: 0; touch-action: none; cursor: default; }
+.room-canvas { display: block; width: 100%; height: 100%; }
+.viewer-canvas { width: 100%; height: 500px; min-height: 300px; }
+.editor-hint { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); max-width: 90%; width: max-content; padding: 10px 17px; border: 1px dashed #ca8dad; background: #fff7e9e8; color: #99607e; font-size: 12px; box-shadow: 2px 2px #dbaaC066; pointer-events: none; z-index: 1; }
+.editor-camera { position: absolute; bottom: 18px; left: 20px; display: flex; align-items: center; gap: 8px; }
+.editor-camera button, .object-tools button { width: 36px; height: 34px; border: 1px solid #b88ab1; background: linear-gradient(#fff,#ead0e9); color: #995780; border-radius: 4px; font-size: 20px; box-shadow: inset 1px 1px white, 2px 2px #dcb6d1; }
+.editor-camera span { font-size: 11px; background: #fff5fb; padding: 7px; border: 1px dotted #cf9fbd; }
+.catalog-panel { background: #fff8fdf2; border-left: 3px double #c99cbd; display: flex; flex-direction: column; min-height: 0; min-width: 0; padding: 19px 15px 12px; z-index: 1; }
+.catalog-panel h2 { font-size: 18px; font-family: inherit; font-weight: bold; color: #9b5688; margin: 0 0 7px; }
+.catalog-panel>p { font-size: 11px; line-height: 1.7; color: #94758b; margin-bottom: 13px; }
+.catalog-filters { display: flex; gap: 4px; margin-bottom: 12px; }
+.catalog-filters button { flex: 1; font-size: 10px; border: 1px solid #c59cbf; border-radius: 3px; padding: 7px 0; background: #f4e5f4; color: #865b89; }
+.catalog-filters button[aria-pressed=true] { background: #edb8d8; color: #8c3e71; box-shadow: inset 1px 1px white; }
+.furniture-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; overflow-y: auto; align-content: start; padding: 2px 5px 10px 1px; overscroll-behavior: contain; }
+.furniture-card { position: relative; padding: 5px 4px 9px; border: 1px solid #d9b5d0; border-radius: 5px; background: linear-gradient(#fff, #faedf6); cursor: grab; touch-action: none; color: #8a5e7c; box-shadow: 2px 2px #f0d9e9; }
+.furniture-card:hover, .furniture-card[aria-pressed=true] { border-color: #c05c98; background: #ffe5f4; }
+.furniture-card[aria-pressed=true] { outline: 2px solid #db91bf; outline-offset: -3px; }
+.furniture-card canvas { display: block; width: 100%; height: 90px; object-fit: contain; pointer-events: none; }
+.furniture-card strong { display: block; font-size: 11px; font-weight: normal; }
+.furniture-card small { display: block; font-size: 9px; color: #a5859a; margin-top: 5px; }
+.editor-footer { border-top: 1px solid #d7a6c6; background: #fff3fbe8; padding: 8px 20px; display: flex; justify-content: space-between; gap: 10px; font-size: 10px; color: #9b708b; }
+.object-tools { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; gap: 7px; padding: 7px; border: 1px solid #c894b6; background: #fff1fbea; border-radius: 5px; z-index: 2; }
+.object-tools button:disabled { opacity: .4; cursor: default; }
+.editor-shell[data-saving=true] .catalog-panel { opacity: .65; pointer-events: none; }
+.editor-shell[data-saving=true] .room-canvas { cursor: progress; }
+.editor-shell .editor-error { margin: auto; padding: 30px; background: #fff8fc; border: 1px solid #c98eb3; max-width: 80vw; }
+.save-status[data-state=error] { color: #b13f58; }
+.save-status[data-state=saving] { color: #a66c29; }
+@media(max-width:800px) {
+  .editor-body { grid-template-columns: minmax(0,1fr) 215px; }
+  .catalog-panel { padding: 15px 10px; }
+  .furniture-card canvas { height: 72px; }
+  .editor-toolbar { padding: 10px 14px; gap: 10px; }
+  .editor-toolbar .button { padding: 10px; }
+  .editor-title { font-size: 15px; }
+  .editor-hint { font-size: 10px; padding: 8px; }
+}
+@media(max-width:580px) {
+  .editor-shell { grid-template-rows: 58px minmax(0,1fr) 30px; }
+  .editor-body { grid-template-columns: minmax(0,1fr); grid-template-rows: minmax(240px,1fr) 210px; }
+  .catalog-panel { border-left: 0; border-top: 3px double #c99cbd; padding: 8px 12px; }
+  .catalog-panel h2, .catalog-panel>p { display: none; }
+  .catalog-filters { max-width: 260px; margin-bottom: 6px; }
+  .furniture-list { display: flex; overflow-x: auto; overflow-y: hidden; padding-bottom: 5px; }
+  .furniture-card { min-width: 92px; max-width: 92px; }
+  .furniture-card canvas { height: 79px; }
+  .editor-title small, .editor-footer span:last-child { display: none; }
+  .editor-toolbar .save-status { font-size: 9px; }
+  .editor-toolbar { padding: 8px; gap: 6px; }
+  .editor-hint { top: 8px; }
+  .editor-footer { padding: 8px 12px; font-size: 9px; }
+  .viewer-canvas { height: 320px; }
+}

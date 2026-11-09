@@ -25,6 +25,11 @@ jobs:
           cache: maven
       - name: Test and package
         run: bash ./mvnw -B verify
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test placement previews
+        run: node --test scripts/placement.test.mjs
 
   publish:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
