@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f8f7f2">
+  <meta name="description" content="나란히, 조금씩. 함께 채워갈 우리의 공간, 나란집.">
+  <title>나란집 · 함께 채워갈 우리의 공간</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <header class="header">
+    <a class="brand" href="#home" aria-label="나란집 홈"><span class="brand-icon">⌂</span> 나란집<span class="brand-en">naranjip</span></a>
+    <nav aria-label="주 메뉴"><a href="#home" class="nav-home">우리의 공간</a><span class="nav-separator"></span><span id="header-user">함께라서 더 좋은 집</span><button id="logout" class="text-button" hidden>로그아웃</button></nav>
+  </header>
+  <main id="app" aria-live="polite"><p class="loading">나란집의 문을 여는 중이에요…</p></main>
+  <footer><span>나란히, 조금씩. 우리의 취향이 모이는 곳.</span><span>NARANJIP <span class="footer-dot">•</span> 작은 시작, 첫 번째 집</span></footer>
+  <div id="toast" role="status" class="toast" hidden></div>
+</body>
+</html>
