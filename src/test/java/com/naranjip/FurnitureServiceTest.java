@@ -42,6 +42,8 @@ class FurnitureServiceTest {
         service.place("test",null,input("door",0,3,90,"left",null));
         service.place("test",null,input("door",3,0,0,"right",null));
         assertThrows(PlacementException.class,()->service.place("test",null,input("door",0,3,90,"left",null)));
+        assertThrows(PlacementException.class,()->service.place("test",null,input("door",0,4,90,"left",null)));
+        assertThrows(PlacementException.class,()->service.place("test",null,input("door",7,0,0,"right",null)));
         assertThrows(PlacementException.class,()->service.place("test",null,input("door",0,1,0,"left",null)));
     }
     @Test void attachmentsHaveLimitsAndDeleteRequiresConfirmation() {

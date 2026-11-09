@@ -59,7 +59,11 @@ public class FurnitureService {
                     FurnitureCatalog.Type other = catalog.require(item.typeId());
                     if (other.kind().equals("attachment")) continue;
                     if (type.kind().equals("wall") && other.kind().equals("wall")) {
-                        if (wall.equals(item.wall()) && x == item.x() && y == item.y()) throw new PlacementException("이미 문이 있는 자리예요.");
+                        int start = wall.equals("left") ? y : x;
+                        int otherStart = wall.equals("left") ? item.y() : item.x();
+                        if (wall.equals(item.wall()) && start < otherStart + other.width() && start + type.width() > otherStart) {
+                            throw new PlacementException("이미 문이 있는 자리예요.");
+                        }
                         continue;
                     }
                     if (type.kind().equals("wall") || other.kind().equals("wall")) continue;

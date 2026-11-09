@@ -6,7 +6,7 @@ export function editorMarkup() {
     <header class="editor-toolbar"><div class="editor-title">♡ 우리집 꾸미기 <small>MY LITTLE ROOM STUDIO</small></div><span class="save-status" role="status">가구 불러오는 중…</span><button class="button primary" id="finish-edit">꾸미기 완료 ✓</button></header>
     <div class="editor-body"><div class="editor-room"><div class="editor-hint" role="status">가구를 누르면 중앙의 빈자리에 놓여요.</div><canvas class="room-canvas" tabindex="0" aria-label="집 꾸미기. 가구 선택 후 방향키로 위치 이동, R로 회전, Enter로 배치, Escape로 취소"></canvas>
       <div class="editor-camera"><button data-camera="out" aria-label="축소">−</button><span id="editor-zoom">100%</span><button data-camera="in" aria-label="확대">+</button></div>
-      <div class="object-tools" hidden><button data-object="rotate" aria-label="가구 90도 회전" title="90도 회전 (R)">↻</button><button data-object="delete" aria-label="가구 삭제" title="삭제 (Delete)">⌫</button><button data-object="cancel" aria-label="선택 취소" title="취소 (Esc)">×</button></div>
+      <div class="object-tools" hidden><button data-object="rotate" aria-label="가구 90도 회전" title="90도 회전 (R)">↻</button><button data-object="delete" aria-label="가구 삭제" title="삭제 (Delete)">×</button></div>
     </div><aside class="catalog-panel"><h2>✧ 나의 가구 상자</h2><p>누르면 중앙부터 빈자리에 놓여요.<br>액자·쪽지는 왼쪽 가구에 자동으로 붙어요.</p><div class="catalog-filters" aria-label="가구 분류"><button data-filter="all" aria-pressed="true">전체</button><button data-filter="floor" aria-pressed="false">가구</button><button data-filter="decor" aria-pressed="false">소품</button></div><div class="furniture-list"></div></aside></div>
     <footer class="editor-footer"><span>놓을 때마다 자동 저장 · 서버 재시작 시 초기화</span><span>우클릭: 회전·삭제 / R: 회전 / Esc: 취소</span></footer>
   </section>`;
@@ -37,7 +37,7 @@ export async function mountEditor(root, initialHouse, toast) {
   function renderCatalog() {
     const items=catalog.items.filter(type=>filter==='all'||(filter==='floor' ? type.kind==='floor' : type.kind!=='floor'));
     const list=root.querySelector('.furniture-list');
-    list.innerHTML=items.map(type=>`<button class="furniture-card" data-type="${type.id}" aria-pressed="${armed===type.id}" title="${type.description}"><canvas width="180" height="150" aria-hidden="true"></canvas><strong>${type.name}</strong><small>${type.kind==='wall'?'벽 전용':type.kind==='attachment'?'가구에 부착':`${type.width} × ${type.height}`}</small></button>`).join('');
+    list.innerHTML=items.map(type=>`<button class="furniture-card" data-type="${type.id}" aria-pressed="${armed===type.id}" title="${type.description}"><canvas width="180" height="150" aria-hidden="true"></canvas><strong>${type.name}</strong><small>${type.kind==='wall'?'벽 2칸':type.kind==='attachment'?'가구에 부착':`${type.width} × ${type.height}`}</small></button>`).join('');
     list.querySelectorAll('[data-type]').forEach(button=>scene.thumbnail(types.get(button.dataset.type),button.querySelector('canvas')));
   }
   function showTools() {

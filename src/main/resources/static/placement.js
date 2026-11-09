@@ -23,7 +23,10 @@ export function validatePlacement(candidate, house, types) {
     if (item.id === candidate.id) return false;
     const other = types.get(item.typeId);
     if (other.kind === 'attachment') return false;
-    if (type.kind === 'wall' && other.kind === 'wall') return item.wall === candidate.wall && item.x === x && item.y === y;
+    if (type.kind === 'wall' && other.kind === 'wall') {
+      const start=candidate.wall==='left'?y:x,otherStart=candidate.wall==='left'?item.y:item.x;
+      return item.wall===candidate.wall&&start<otherStart+other.width&&start+type.width>otherStart;
+    }
     if (type.kind === 'wall' || other.kind === 'wall') return false;
     if ((type.kind === 'rug') !== (other.kind === 'rug')) return false;
     const [ow, oh] = dimensions(other, item.rotation);

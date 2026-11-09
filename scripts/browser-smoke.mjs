@@ -49,7 +49,7 @@ try {
   await drag('rug',3.5,4.5,5);
   // Invalid overlap must preserve the server state.
   await drag('chair',1.5,4.5,5);
-  await evaluate(`document.querySelector('[data-object="cancel"]').click()`);
+  await evaluate(`window.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}))`);
   const house=await getHouse();
   const sofa=house.furniture.find(i=>i.typeId==='sofa');assert.equal(sofa.x,3);
   // Select the sofa by its visible top and use the UI rotation button.
@@ -66,7 +66,7 @@ try {
   await dragAt('frame',320+(2-1.5)*32,230+(2+1.5)*16-32,8);
   await dragAt('frame',320+(2-1.5)*32,230+(2+1.5)*16-32,8);
   await dragAt('note',320+(5.5-1.5)*32,230+(5.5+1.5)*16-40,9);
-  await evaluate(`document.querySelector('[data-object="cancel"]').click()`);
+  await evaluate(`window.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}))`);
   // Existing furniture drag and deletion controls.
   const chairStart=await screenPoint(320+(1.5-4.5)*32,230+(1.5+4.5)*16-60);
   const chairEnd=await screenPoint(320+(1.5-6.5)*32,230+(1.5+6.5)*16);
