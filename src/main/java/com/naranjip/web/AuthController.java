@@ -1,0 +1,73 @@
+package com.naranjip.web;
+import com.naranjip.application.*;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+import java.io.Serializable;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api")
+public class AuthController {
+    private final AccountService accounts;
+    private final HouseRepository houses;
+    private final FurnitureService furniture;
+    public AuthController(AccountService accounts, HouseRepository houses, FurnitureService furniture) {
+        this.accounts=accounts; this.houses=houses; this.furniture=furniture;
+    }
+    public record LoginInput(
+        @NotBlank(message="아이디를 입력해 주세요.") @Size(max=40,message="아이디가 너무 길어요.") String loginId,
+        @NotBlank(message="비밀번호를 입력해 주세요.") @Size(max=72,message="비밀번호가 너무 길어요.") String password) {}
+    public record RegisterInput(
+        @NotBlank(message="아이디를 입력해 주세요.") @Pattern(regexp="[a-zA-Z0-9_가-힣]{3,20}",message="아이디는 한글·영문·숫자·밑줄 3~20자로 입력해 주세요.") String loginId,
+        @NotBlank(message="이메일을 입력해 주세요.") @Email(message="올바른 이메일 주소를 입력해 주세요.") @Size(max=254,message="이메일이 너무 길어요.") String email,
+        @NotBlank(message="비밀번호를 입력해 주세요.") @Size(min=8,max=72,message="비밀번호는 8자 이상, 72바이트 이내로 입력해 주세요.") String password) {}
+    public record Resident(String displayName, String houseId) implements Serializable {}
+    public record Me(boolean authenticated, Resident user) {}
+
+    @GetMapping("/csrf") public Map<String,String> csrf(CsrfToken token) {
+        return Map.of("token",token.getToken(),"headerName",token.getHeaderName());
+    }
+    @GetMapping("/me") public Me me(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        Resident resident = session == null ? null : (Resident)session.getAttribute("resident");
+        return new Me(resident != null,resident);
+    }
+    @PostMapping("/auth/register")
+    @ResponseStatus(HttpStatus.CREATED)
+    public Me register(@Valid @RequestBody RegisterInput input, HttpServletRequest request) {
+        return establish(accounts.register(input.loginId(),input.email(),input.password()),request);
+    }
+    @PostMapping("/auth/login")
+    public Me login(@Valid @RequestBody LoginInput input, HttpServletRequest request) {
+        return establish(accounts.login(input.loginId(),input.password()),request);
+    }
+    private Me establish(AccountRepository.Account account,HttpServletRequest request) {
+        HttpSession previous=request.getSession(false);
+        if(previous!=null)previous.invalidate();
+        Resident resident=new Resident(account.loginId(),account.id().toString());
+        houses.create(resident.houseId(),resident.displayName());
+        request.getSession(true).setAttribute("resident",resident);
+        return new Me(true,resident);
+    }
+    @PostMapping("/auth/logout") @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void logout(HttpServletRequest request) {
+        HttpSession session=request.getSession(false);
+        if(session!=null)session.invalidate();
+    }
+    @GetMapping("/houses/{id}") public HouseState.Snapshot house(@PathVariable String id,HttpServletRequest request) {
+        Resident user=me(request).user();
+        if(user==null)throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        if(!user.houseId().equals(id))throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        houses.create(id,user.displayName());
+        return furniture.read(id);
+    }
+    @GetMapping("/rankings") public Map<String,Object> rankings() {
+        return Map.of("status","coming-soon","houses",java.util.List.of());
+    }
+}
