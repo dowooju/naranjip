@@ -1,6 +1,6 @@
 import { roomSvg } from './room.js';
 import { dimensions, iso } from './placement.js';
-import { furnitureMatrix } from './sprite-projection.js';
+import { furniturePieces, containsPoint } from './sprite-projection.js';
 
 function loadImage(url) {
   return new Promise((resolve, reject) => {
@@ -39,32 +39,40 @@ export async function createScene(canvas, house, catalog, editing = false) {
   const context = canvas.getContext('2d');
   let state = house, selected = null, preview = null, zoom = 1, transform = { scale: 1, x: 0, y: 0 }, hits = [], disposed = false;
 
-  function matrix(item) {
+  function pieces(item) {
     const type=types.get(item.typeId), sprite=sprites.get(type.id);
-    if(type.kind!=='attachment')return furnitureMatrix(item,type,sprite);
+    if(type.kind!=='attachment')return furniturePieces(item,type,sprite);
     const saved=state.furniture.find(p=>p.id===item.parentId);
-    if(!saved)return new DOMMatrix();
+    if(!saved)return [];
     const parent=preview?.item.id===saved.id?preview.item:saved;
     const parentSprite=sprites.get(parent.typeId);
     const slots=type.id==='frame'?[[.38,.28],[.68,.38]]:[[.28,.38],[.17,.63],[.43,.67]];
     const [u,v]=slots[item.slot]||slots[0];
     const scale=parentSprite.sw*(type.id==='frame'?.20:.19)/sprite.sw;
-    return matrix(parent).translate(u*parentSprite.sw-sprite.sw*scale/2,v*parentSprite.sh-sprite.sh*scale).scale(scale);
+    const origin={x:u*parentSprite.sw,y:v*parentSprite.sh};
+    const parentParts=pieces(parent);
+    const basis=parentParts.find(part=>containsPoint(part.clip,origin))||parentParts[0];
+    return [{matrix:basis.matrix.translate(origin.x-sprite.sw*scale/2,origin.y-sprite.sh*scale).scale(scale),
+      clip:[[0,0],[sprite.sw,0],[sprite.sw,sprite.sh],[0,sprite.sh]]}];
   }
   function bounds(item) {
-    const sprite=sprites.get(item.typeId), m=matrix(item);
-    const corners=[[0,0],[sprite.sw,0],[sprite.sw,sprite.sh],[0,sprite.sh]].map(([x,y])=>m.transformPoint({x,y}));
+    const corners=pieces(item).flatMap(part=>part.clip.map(([x,y])=>part.matrix.transformPoint({x,y})));
+    if(!corners.length)return {x:0,y:0,width:0,height:0};
     const x=Math.min(...corners.map(p=>p.x)),y=Math.min(...corners.map(p=>p.y));
     return {x,y,width:Math.max(...corners.map(p=>p.x))-x,height:Math.max(...corners.map(p=>p.y))-y};
   }
   function drawItem(item, alpha = 1, ghost = false) {
-    const sprite = sprites.get(item.typeId), rect = bounds(item), m=matrix(item);
+    const sprite = sprites.get(item.typeId), rect = bounds(item);
+    for(const part of pieces(item)) {
+    const m=part.matrix;
     context.save();
     context.globalAlpha = alpha;
     if (!ghost && selected === item.id) { context.shadowColor = '#dc4c98'; context.shadowBlur = 8; }
     context.transform(m.a,m.b,m.c,m.d,m.e,m.f);
+    context.beginPath();part.clip.forEach(([x,y],i)=>i?context.lineTo(x,y):context.moveTo(x,y));context.closePath();context.clip();
     context.drawImage(atlas, sprite.sx, sprite.sy, sprite.sw, sprite.sh, 0,0,sprite.sw,sprite.sh);
     context.restore();
+    }
     if (!ghost) hits.push({item, rect});
   }
   function polygon(points, color, stroke) {
@@ -78,7 +86,7 @@ export async function createScene(canvas, house, catalog, editing = false) {
       if (parent) footprint(parent,valid);
     } else if (type.kind === 'wall') {
       const a = item.wall === 'left' ? iso(0,item.y) : iso(item.x,0);
-      const b = item.wall === 'left' ? iso(0,item.y+1) : iso(item.x+1,0);
+      const b = item.wall === 'left' ? iso(0,item.y+h) : iso(item.x+w,0);
       polygon([a,b,{x:b.x,y:b.y-142},{x:a.x,y:a.y-142}], valid ? '#4d9eff66' : '#6e587b66', valid ? '#2279e6' : '#6e587b');
     } else {
       for (let y=0;y<h;y++) for(let x=0;x<w;x++) polygon([
@@ -134,11 +142,14 @@ export async function createScene(canvas, house, catalog, editing = false) {
         const {rect,item}=hit;
         if (predicate(item) && point.x>=rect.x && point.x<rect.x+rect.width && point.y>=rect.y && point.y<rect.y+rect.height) {
           const sprite=sprites.get(item.typeId);
-          const local=matrix(item).inverse().transformPoint(point);
+          for(const part of pieces(item)) {
+          const local=part.matrix.inverse().transformPoint(point);
           if(local.x<0||local.y<0||local.x>=sprite.sw||local.y>=sprite.sh)continue;
+          if(!containsPoint(part.clip,local))continue;
           const sx=sprite.sx+Math.floor(local.x);
           const sy=sprite.sy+Math.floor(local.y);
           if(sourceContext.getImageData(sx,sy,1,1).data[3]>35)return item;
+          }
         }
       }
       return null;
