@@ -37,3 +37,34 @@ export function floorCell(point) {
   const dx = (point.x - 320) / 32, dy = (point.y - 230) / 16;
   return { x: Math.floor((dx + dy) / 2), y: Math.floor((dy - dx) / 2) };
 }
+
+export function automaticPlacement(typeId, house, types) {
+  const type=types.get(typeId);
+  if(!type)return null;
+  if(type.kind==='attachment') {
+    const parentType=typeId==='frame'?'desk':'fridge';
+    const parents=house.furniture.filter(item=>item.typeId===parentType).sort((a,b)=>{
+      const [aw,ah]=dimensions(types.get(a.typeId),a.rotation),[bw,bh]=dimensions(types.get(b.typeId),b.rotation);
+      return (a.x-a.y+(aw-ah)/2)-(b.x-b.y+(bw-bh)/2)||a.y-b.y||a.x-b.x;
+    });
+    for(const parent of parents) {
+      const used=house.furniture.filter(item=>item.parentId===parent.id).map(item=>item.slot);
+      let slot=0;while(used.includes(slot))slot++;
+      const candidate={typeId,x:0,y:0,rotation:0,parentId:parent.id,slot};
+      if(validatePlacement(candidate,house,types).valid)return candidate;
+    }
+    return null;
+  }
+  const candidates=[];
+  for(let y=0;y<8;y++)for(let x=0;x<8;x++) {
+    if(type.kind==='wall') {
+      if(x===0)candidates.push({typeId,x,y,rotation:90,wall:'left'});
+      if(y===0)candidates.push({typeId,x,y,rotation:0,wall:'right'});
+    } else candidates.push({typeId,x,y,rotation:0});
+  }
+  const distance=item=>{
+    const [w,h]=dimensions(type,item.rotation);
+    return (item.x+w/2-4)**2+(item.y+h/2-4)**2;
+  };
+  return candidates.sort((a,b)=>distance(a)-distance(b)||a.y-b.y||a.x-b.x).find(item=>validatePlacement(item,house,types).valid)||null;
+}

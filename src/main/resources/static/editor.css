@@ -29,7 +29,7 @@ body.editor-active>main { padding: 0; max-width: none; min-height: 0; }
 .furniture-card strong { display: block; font-size: 11px; font-weight: normal; }
 .furniture-card small { display: block; font-size: 9px; color: #a5859a; margin-top: 5px; }
 .editor-footer { border-top: 1px solid #d7a6c6; background: #fff3fbe8; padding: 8px 20px; display: flex; justify-content: space-between; gap: 10px; font-size: 10px; color: #9b708b; }
-.object-tools { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; gap: 7px; padding: 7px; border: 1px solid #c894b6; background: #fff1fbea; border-radius: 5px; z-index: 2; }
+.object-tools { position: absolute; top: 0; left: 0; transform: translateX(-50%); display: flex; gap: 7px; padding: 7px; border: 1px solid #c894b6; background: #fff1fbea; border-radius: 5px; z-index: 2; }
 .object-tools button:disabled { opacity: .4; cursor: default; }
 .editor-shell[data-saving=true] .catalog-panel { opacity: .65; pointer-events: none; }
 .editor-shell[data-saving=true] .room-canvas { cursor: progress; }

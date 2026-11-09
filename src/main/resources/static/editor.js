@@ -1,13 +1,13 @@
 import { createScene } from './furniture-scene.js';
-import { floorCell, validatePlacement } from './placement.js';
+import { floorCell, validatePlacement, automaticPlacement } from './placement.js';
 
 export function editorMarkup() {
   return `<section class="editor-shell" aria-label="전체 화면 집 꾸미기" data-saving="false">
     <header class="editor-toolbar"><div class="editor-title">♡ 우리집 꾸미기 <small>MY LITTLE ROOM STUDIO</small></div><span class="save-status" role="status">가구 불러오는 중…</span><button class="button primary" id="finish-edit">꾸미기 완료 ✓</button></header>
-    <div class="editor-body"><div class="editor-room"><div class="editor-hint" role="status">오른쪽 가구를 방으로 끌어 놓아 보세요.</div><canvas class="room-canvas" tabindex="0" aria-label="집 꾸미기. 가구 선택 후 방향키로 위치 이동, R로 회전, Enter로 배치, Escape로 취소"></canvas>
+    <div class="editor-body"><div class="editor-room"><div class="editor-hint" role="status">가구를 누르면 중앙의 빈자리에 놓여요.</div><canvas class="room-canvas" tabindex="0" aria-label="집 꾸미기. 가구 선택 후 방향키로 위치 이동, R로 회전, Enter로 배치, Escape로 취소"></canvas>
       <div class="editor-camera"><button data-camera="out" aria-label="축소">−</button><span id="editor-zoom">100%</span><button data-camera="in" aria-label="확대">+</button></div>
       <div class="object-tools" hidden><button data-object="rotate" aria-label="가구 90도 회전" title="90도 회전 (R)">↻</button><button data-object="delete" aria-label="가구 삭제" title="삭제 (Delete)">⌫</button><button data-object="cancel" aria-label="선택 취소" title="취소 (Esc)">×</button></div>
-    </div><aside class="catalog-panel"><h2>✧ 나의 가구 상자</h2><p>끌어서 놓거나, 선택 후 원하는 곳을 눌러요.<br>같은 가구도 여러 개 꺼낼 수 있어요.</p><div class="catalog-filters" aria-label="가구 분류"><button data-filter="all" aria-pressed="true">전체</button><button data-filter="floor" aria-pressed="false">가구</button><button data-filter="decor" aria-pressed="false">소품</button></div><div class="furniture-list"></div></aside></div>
+    </div><aside class="catalog-panel"><h2>✧ 나의 가구 상자</h2><p>누르면 중앙부터 빈자리에 놓여요.<br>액자·쪽지는 왼쪽 가구에 자동으로 붙어요.</p><div class="catalog-filters" aria-label="가구 분류"><button data-filter="all" aria-pressed="true">전체</button><button data-filter="floor" aria-pressed="false">가구</button><button data-filter="decor" aria-pressed="false">소품</button></div><div class="furniture-list"></div></aside></div>
     <footer class="editor-footer"><span>놓을 때마다 자동 저장 · 서버 재시작 시 초기화</span><span>우클릭: 회전·삭제 / R: 회전 / Esc: 취소</span></footer>
   </section>`;
 }
@@ -46,10 +46,20 @@ export async function mountEditor(root, initialHouse, toast) {
     const type=types.get(item?.typeId);
     tools.querySelector('[data-object=rotate]').disabled=!type||type.kind==='wall'||type.kind==='attachment';
     tools.querySelector('[data-object=delete]').disabled=!selected;
+    positionTools();
+  }
+  function positionTools() {
+    if(tools.hidden)return;
+    const item=candidate||house.furniture.find(item=>item.id===selected);
+    if(!item){tools.hidden=true;return;}
+    const b=scene.screenBounds(item), area=canvas.parentElement.getBoundingClientRect();
+    const half=tools.offsetWidth/2+5;
+    tools.style.left=Math.max(half,Math.min(area.width-half,b.x+b.width/2-area.left))+'px';
+    tools.style.top=Math.max(5,b.y-area.top-tools.offsetHeight-8)+'px';
   }
   function cancel() {
     selected=null; armed=null; drag=null; candidate=null; scene.select(null); scene.preview(null); showTools(); renderCatalog();
-    hint.textContent='가구를 끌어 놓으세요. 놓을 수 있는 자리는 붉은색으로 보여요.';
+    hint.textContent='가구를 클릭해서 추가하세요. 놓을 수 있는 자리는 파란색이에요.';
   }
   async function resync() {
     house=await request(`/api/houses/${house.id}`); scene.update(house); uncertain=false;
@@ -59,9 +69,15 @@ export async function mountEditor(root, initialHouse, toast) {
     shell.dataset.saving='true'; setStatus('저장 중…','saving'); scene.preview(null);
     pending=(async()=>{
       try {
+        const oldIds=new Set(house.furniture.map(item=>item.id));
+        const retainId=body?.id||selected;
         house=await request(path,{method,headers:{'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
         if(disposed)return;
         scene.update(house); uncertain=false; setStatus('✓ 저장했어요'); cancel();
+        if(method!=='DELETE') {
+          selected=house.furniture.find(item=>!oldIds.has(item.id))?.id||retainId;
+          scene.select(selected); showTools();
+        }
       } catch(error) {
         if(disposed)return;
         toast(error.message); uncertain=true;
@@ -102,12 +118,21 @@ export async function mountEditor(root, initialHouse, toast) {
     candidate=item;
     const result=validatePlacement(item,house,types);
     scene.preview({item,valid:result.valid}); hint.textContent=result.reason;
+    showTools();
     return result;
   }
   async function place(item) {
     if(pending||uncertain)return;
     if(!validatePlacement(item,house,types).valid) { scene.preview(null); candidate=null; hint.textContent='그 자리에는 놓을 수 없어요. 원래 위치를 유지했어요.'; return; }
     await mutate(item.id?'PUT':'POST',`/api/houses/${house.id}/furniture${item.id?'/'+item.id:''}`,{...item,revision:house.revision});
+  }
+  async function addAutomatically(typeId) {
+    if(pending||uncertain)return;
+    const item=automaticPlacement(typeId,house,types);
+    if(!item) {
+      cancel();toast(types.get(typeId).kind==='attachment'?'붙일 수 있는 책상·냉장고의 빈자리가 없어요.':'가구를 놓을 빈자리가 없어요.');return;
+    }
+    await place(item);
   }
   function arm(typeId) {
     if(pending||uncertain)return;
@@ -143,7 +168,7 @@ export async function mountEditor(root, initialHouse, toast) {
       filter=filterButton.dataset.filter; root.querySelectorAll('[data-filter]').forEach(button=>button.setAttribute('aria-pressed',String(button===filterButton))); renderCatalog();
     }
     const typeButton=event.target.closest('[data-type]');
-    if(typeButton&&event.detail===0) { arm(typeButton.dataset.type); canvas.focus(); }
+    if(typeButton&&event.detail===0) { addAutomatically(typeButton.dataset.type); canvas.focus(); }
     const action=event.target.closest('[data-object]')?.dataset.object;
     if(action==='rotate')rotate(); if(action==='delete')remove(); if(action==='cancel')cancel();
     const camera=event.target.closest('[data-camera]')?.dataset.camera;
@@ -172,10 +197,12 @@ export async function mountEditor(root, initialHouse, toast) {
     if(!drag)return;
     const current=drag; drag=null;
     const rect=canvas.getBoundingClientRect(), inside=event.clientX>=rect.left&&event.clientX<=rect.right&&event.clientY>=rect.top&&event.clientY<=rect.bottom;
-    if(current.moved&&inside)place(toCandidate(event,current.source));
-    else { scene.preview(null); candidate=null; }
+    if(current.fromCatalog&&!current.moved)addAutomatically(current.source.typeId);
+    else if(current.moved&&inside)place(toCandidate(event,current.source));
+    else { scene.preview(null); candidate=null; showTools(); }
   });
   on(window,'pointercancel',()=>{ drag=null; candidate=null; scene.preview(null); });
+  on(canvas,'scenechange',positionTools);
   on(canvas,'contextmenu',event=>{
     const item=scene.hit(scene.point(event));
     if(item) { event.preventDefault(); if(!pending){ selected=item.id;armed=null;scene.select(selected);scene.preview(null);candidate=null;showTools();renderCatalog(); } }
