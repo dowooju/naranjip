@@ -52,7 +52,11 @@ export async function createScene(canvas, house, catalog, editing = false) {
     const origin={x:u*parentSprite.sw,y:v*parentSprite.sh};
     const parentParts=pieces(parent);
     const basis=parentParts.find(part=>containsPoint(part.clip,origin))||parentParts[0];
-    return [{matrix:basis.matrix.translate(origin.x-sprite.sw*scale/2,origin.y-sprite.sh*scale).scale(scale),
+    // A standing frame sits on the top plane but stays upright with the front face.
+    const anchor=basis.matrix.transformPoint(origin);
+    const orientation=type.id==='frame'?parentParts[0].matrix:basis.matrix;
+    const attached=new DOMMatrix([orientation.a,orientation.b,orientation.c,orientation.d,anchor.x,anchor.y]);
+    return [{matrix:attached.translate(-sprite.sw*scale/2,-sprite.sh*scale).scale(scale),
       clip:[[0,0],[sprite.sw,0],[sprite.sw,sprite.sh],[0,sprite.sh]]}];
   }
   function bounds(item) {

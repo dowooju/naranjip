@@ -50,34 +50,21 @@ export function furniturePieces(item,type,sprite) {
     return [{matrix:new DOMMatrix([flipped?-scale:scale,0,0,scale,
       base.x+(flipped?1:-1)*sprite.sw*scale/2,base.y-sprite.sh*scale+7]),clip:rectangle}];
   }
-  if(type.id==='sofa'||type.kind==='wall')return [{matrix:furnitureMatrix(item,type,sprite),clip:rectangle}];
-  const w=type.width,h=type.height,turned=item.rotation%180===90;
-  const targets=turned
-    ? [iso(item.x+h,item.y),iso(item.x+h,item.y+w),iso(item.x,item.y+w)]
-    : [iso(item.x,item.y+h),iso(item.x+w,item.y+h),iso(item.x+w,item.y)];
-  if(type.kind==='rug') {
-    // Four actual rug corners -> four exact floor corners, with no upright component.
-    const source=[[.03,.55],[.55,.96],[.97,.45],[.44,.03]].map(([x,y])=>[x*sprite.sw,y*sprite.sh]);
-    const target=[...targets,iso(item.x,item.y)];
-    return [[0,1,2],[0,2,3]].map(indices=>({
-      matrix:affine(indices.map(i=>source[i]),indices.map(i=>target[i])),clip:indices.map(i=>source[i])
-    }));
+  if(type.id==='sofa')return [{matrix:furnitureMatrix(item,type,sprite),clip:rectangle}];
+  // New artwork is drawn in room perspective. Preserve it with uniform scale only.
+  // Never shear, split, clip lace borders, or independently stretch x/y again.
+  const [w,h]=dimensions(type,item.rotation);
+  let span=32*(w+h), left=iso(item.x,item.y+h).x, bottom=iso(item.x+w,item.y+h).y;
+  let flipped=item.rotation%180===90;
+  if(type.kind==='wall') {
+    span=32*1.4;
+    const anchor=item.wall==='left'?iso(0,item.y+1.7):iso(item.x+.3,0);
+    left=anchor.x;bottom=anchor.y+(item.wall==='left'?0:span/2);
+    flipped=item.wall!=='left';
   }
-  const points=(contacts[type.id]||contacts.chair).map(([x,y])=>[x*sprite.sw,y*sprite.sh]);
-  // Two upright faces: c=0 guarantees every vertical line remains vertical.
-  // Only the ground-line slope changes. Never tilt the entire object as a flat plane.
-  const verticalScale=Math.abs((targets[2].x-targets[0].x)/(points[2][0]-points[0][0]));
-  return [0,1].map(index=>{
-    const p=points[index],q=points[index+1],a=targets[index],b=targets[index+1];
-    const xScale=(b.x-a.x)/(q[0]-p[0]);
-    const shear=((b.y-a.y)-verticalScale*(q[1]-p[1]))/(q[0]-p[0]);
-    const left=index===0?0:points[1][0],right=index===0?points[1][0]:sprite.sw;
-    return {matrix:new DOMMatrix([xScale,shear,0,verticalScale,
-      a.x-xScale*p[0],a.y-shear*p[0]-verticalScale*p[1]]),
-      clip:[[left,0],[right,0],[right,sprite.sh],[left,sprite.sh]]};
-  });
+  const scale=span/sprite.sw;
+  return [{matrix:new DOMMatrix([flipped?-scale:scale,0,0,scale,left+(flipped?span:0),bottom-sprite.sh*scale]),clip:rectangle}];
 }
-
 export function containsPoint(polygon, point) {
   let inside=false;
   for(let i=0,j=polygon.length-1;i<polygon.length;j=i++) {
