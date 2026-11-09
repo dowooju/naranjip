@@ -1,0 +1,11 @@
+/target/
+/.idea/
+/.vscode/
+*.iml
+*.log
+.env
+.env.*
+!.env.example
+kubeconfig*
+*secret*.yaml
+/.tools/
