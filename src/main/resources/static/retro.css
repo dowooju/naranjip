@@ -1,0 +1,247 @@
+/* Early-2000s mini-homepage skin. Layout and application behavior live in styles.css. */
+:root {
+  font-family: '돋움', Dotum, '굴림', Gulim, sans-serif;
+  color: #63405f;
+  background: #f8d8e8;
+  --green: #c85b91;
+  --line: #d4a0c3;
+  --muted: #88677f;
+}
+body {
+  background-color: #f9e4ed;
+  background-image: linear-gradient(90deg, #fff8 1px, transparent 1px), linear-gradient(#fff8 1px, transparent 1px), linear-gradient(90deg, #edb9d244 50%, transparent 50%), linear-gradient(#edb9d244 50%, transparent 50%);
+  background-size: 12px 12px, 12px 12px, 24px 24px, 24px 24px;
+}
+.header {
+  border-top: 5px solid #d797bd;
+  border-bottom: 3px double #c791b6;
+  background: linear-gradient(#fff9fc 0%, #fbe1f0 49%, #f2c8e1 50%, #fff0f7 100%);
+  box-shadow: 0 3px 0 #fff9;
+}
+.brand {
+  font-family: '굴림', Gulim, sans-serif;
+  color: #b84284;
+  text-shadow: 2px 2px 0 #fff, -1px -1px 0 #fff;
+  letter-spacing: -2px;
+}
+.brand-icon {
+  border: 1px solid #bd6197;
+  border-radius: 7px;
+  background: linear-gradient(#fff2fa, #f8a9d1 49%, #d96ea5 50%, #f5b2d5);
+  box-shadow: inset 1px 1px #fff, 2px 2px #d1a4c2;
+  color: #fff;
+  text-shadow: 1px 1px #b05288;
+}
+.brand-en { color: #ab6596; font-family: Georgia, serif; font-style: italic; letter-spacing: 1px; }
+nav .nav-home { color: #9e4c85; }
+.nav-separator { background: #d5a3c4; }
+#header-user, .text-button { color: #875d80; }
+main { position: relative; }
+.intro { padding: 0 6px 19px; border-bottom: 1px dashed #c790b8; }
+.intro h1 {
+  font-family: '굴림', Gulim, sans-serif;
+  font-weight: 700;
+  color: #bb558d;
+  text-shadow: 2px 2px 0 white, 3px 3px 0 #d6aac7;
+  letter-spacing: -2px;
+}
+.intro h1 span { color: #9a6db3; }
+.intro .eyebrow { color: #a76896; letter-spacing: 1px; }
+.intro p:last-child { color: #885b7d; }
+.intro-note {
+  padding: 11px 16px;
+  border: 1px solid #ce9abb;
+  background: #fff6d9;
+  box-shadow: 3px 3px 0 #dab4ca;
+  color: #a46a8c;
+  font-family: '굴림', Gulim, sans-serif;
+  font-size: 12px;
+  transform: rotate(-3deg);
+}
+.intro-note span { color: #dc85ae; font-size: 22px; margin-left: 9px; }
+.panel {
+  border: 2px solid #c493ba;
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 3px #fff, 4px 4px 0 #d7b5cd;
+  background-color: #fffafe;
+}
+.ranking-panel, .account-panel, .house-sidebar { position: relative; }
+.ranking-panel::before, .account-panel::before, .house-sidebar::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 8px;
+  border-bottom: 1px solid #e4b8d5;
+  background: repeating-linear-gradient(90deg, #f3d2e7 0 6px, #fff5fb 6px 12px);
+  pointer-events: none;
+}
+.panel-eyebrow {
+  padding: 7px 9px;
+  border: 1px solid #be92bd;
+  background: linear-gradient(#fbf1ff, #d9bde8 48%, #cfacdf 50%, #efdbf6);
+  box-shadow: inset 1px 1px white;
+  color: #79528d;
+  font-weight: bold;
+  border-radius: 3px;
+  margin-bottom: 20px;
+}
+.tiny-star { color: #ae6eaa; text-shadow: 1px 1px #fff; }
+.tabs { gap: 5px; border-color: #be8cb0; }
+.tabs button {
+  flex: 1;
+  border: 1px solid #c7a1c4;
+  border-bottom: 0;
+  border-radius: 5px 5px 0 0;
+  background: linear-gradient(#fff, #eee0f2);
+  color: #86668f;
+  padding: 10px 3px;
+  font-size: 11px;
+}
+.tabs button[aria-selected=true] {
+  color: #a13f76;
+  border-color: #c78bae;
+  background: linear-gradient(#fff5fb, #f3c4df);
+  box-shadow: inset 0 2px #fff;
+}
+.ranking-empty {
+  margin: 10px 0 18px;
+  border: 1px dashed #ddbdd4;
+  background: radial-gradient(#e4bad6 1px, transparent 1px) 0 0 / 9px 9px, #fffafd;
+}
+.outline-medal { color: #d788b4; text-shadow: 2px 2px #f5d7e9; }
+.ranking-empty h3 { color: #976181; }
+.ranking-empty p, .muted { color: #896a83; }
+.soon-label {
+  background: #fff2c8;
+  border: 1px solid #dcb587;
+  border-radius: 3px;
+  color: #9b744b;
+  box-shadow: inset 1px 1px #fff;
+  font-family: '돋움', Dotum, sans-serif;
+}
+.aside-note {
+  background: repeating-linear-gradient(#fff8e9 0 22px, #ecdbdb 22px 23px);
+  border: 1px solid #d9b6c7;
+  border-radius: 2px;
+  box-shadow: 2px 2px #efdce6;
+}
+.aside-note>span { color: #c672a1; }
+.aside-note p { color: #9a6b87; font-family: '굴림', Gulim, sans-serif; }
+.welcome-panel, .house-stage {
+  background-color: #f8cbdc;
+  background-image: url('/retro-stars.svg');
+  background-size: 150px 150px;
+  border-color: #c88baa;
+  box-shadow: inset 0 0 0 4px #fff7fb, 4px 4px #d8adc6;
+}
+.welcome-panel::before, .house-stage::before {
+  content: '';
+  position: absolute;
+  top: 5px; left: 5px; right: 5px; height: 12px;
+  background: radial-gradient(circle at 8px 0, #fffdfb 9px, transparent 9.5px) 0 0 / 16px 12px repeat-x;
+  pointer-events: none;
+}
+.house-stage { position: relative; }
+.pill {
+  border: 1px solid #d68cac;
+  border-radius: 4px;
+  background: linear-gradient(#fff6fc, #ffd6e9);
+  box-shadow: inset 1px 1px #fff, 1px 1px #e8a6c4;
+  color: #a34d79;
+}
+.status-dot { background: #cf659b; border-radius: 1px; box-shadow: 1px 1px #f4b1cf; }
+.room-number { color: #a75988; background: #fff5fbbf; border: 1px dotted #d19dbb; padding: 4px 6px; }
+.welcome-caption {
+  border: 1px dashed #d29bb8;
+  background: #fff7f0e6;
+  padding: 20px 8px 16px;
+  border-radius: 3px;
+}
+.welcome-caption::before {
+  content: '♡  W E L C O M E  ♡';
+  position: absolute;
+  top: -9px; left: 50%; transform: translateX(-50%);
+  white-space: nowrap;
+  padding: 3px 14px;
+  background: #eab7d6;
+  color: #8c4b79;
+  border: 1px solid #cd8eb3;
+  font: 9px '돋움', Dotum, sans-serif;
+}
+.welcome-caption h2 { color: #a35486; font-family: '굴림', Gulim, sans-serif; font-size: 25px; line-height: 1.6; font-weight: bold; }
+.welcome-caption .eyebrow { color: #aa7899; letter-spacing: 1px; }
+.welcome-caption>p:last-child { color: #91667e; }
+.corner-spark { color: #d589b3; text-shadow: 1px 1px white; z-index: 1; }
+.eyebrow { color: #a26c98; letter-spacing: 1.2px; }
+.small-house {
+  color: #c4649c;
+  background: linear-gradient(#fff4fc, #eec6e2);
+  border: 1px solid #ce9bbf;
+  border-radius: 5px;
+  padding: 0 9px;
+  box-shadow: inset 1px 1px white, 2px 2px #efd8e8;
+}
+.account-panel h2, .house-sidebar h2 { font-family: '굴림', Gulim, sans-serif; font-weight: bold; color: #936184; font-size: 24px; line-height: 1.6; }
+label { color: #956487; font-weight: bold; }
+label::before { content: '♥ '; color: #d88fb8; font-size: 9px; }
+input {
+  background: #fffafd;
+  color: #795370;
+  border: 1px solid #c9a4c2;
+  border-top-color: #ac84a7;
+  border-left-color: #ac84a7;
+  border-radius: 3px;
+  box-shadow: inset 2px 2px 0 #f0e1ed;
+}
+input::placeholder { color: #a0839b; }
+input:focus, button:focus-visible, a:focus-visible { outline-color: #a573b4; }
+.button { border-radius: 4px; font-weight: bold; }
+.primary {
+  color: #92345f;
+  border: 1px solid #b96894;
+  background: linear-gradient(#fff2fb 0%, #f9c5df 47%, #ee9fc5 48%, #f8cce2 100%);
+  box-shadow: inset 1px 1px #fff, inset -1px -1px #d48caf, 2px 2px #ead1e1;
+  text-shadow: 1px 1px #fff0f8;
+}
+.primary:hover { background: linear-gradient(#fff9fc, #ffd4e9 47%, #f3b1d1 48%, #ffe1ef); }
+.button:active { transform: translate(1px, 1px); box-shadow: inset 1px 1px #ca94b5; }
+.secondary {
+  color: #7f5599;
+  border: 1px solid #b799c8;
+  background: linear-gradient(#fff, #e8d5f2 48%, #d9bce7 49%, #f2e4fa);
+  box-shadow: inset 1px 1px #fff, 2px 2px #eadbea;
+}
+.secondary:hover { background: #f2e4fa; }
+.auth-switch { color: #97768d; }
+.auth-switch a { color: #b34f8b; }
+.optional, .demo-note, .session-note { color: #92738a; }
+.demo-note { border-color: #d8b1ce; }
+.avatar {
+  border: 3px double #c28cb4;
+  border-radius: 6px;
+  background: repeating-linear-gradient(45deg, #f7d6e8 0 5px, #fff0f7 5px 10px);
+  color: #ab568a;
+  box-shadow: 3px 3px #edcde1;
+}
+.house-top h1 { font-family: '굴림', Gulim, sans-serif; font-weight: bold; color: #a15287; text-shadow: 2px 2px #fff; }
+.back-link, .house-top p { color: #926382; }
+.stage-bottom>span { color: #975678; background: #fff3f9df; border: 1px dotted #d496b6; padding: 6px 8px; }
+.zoom-controls { border-color: #c195bb; border-radius: 3px; background: linear-gradient(#fff, #eed6ef); box-shadow: inset 1px 1px white; }
+.zoom-controls button, .zoom-controls span { color: #8d6099; }
+.reaction { border: 1px solid #d1a1c2; border-radius: 4px; background: linear-gradient(#fffafd, #f5dfef); color: #a15a89; box-shadow: inset 1px 1px white, 2px 2px #f0daea; }
+.reaction:hover { background: #f9e6f2; }
+.reaction small { color: #97728c; }
+.catalog-empty { border-color: #d5b1cd; }
+.catalog-empty>span:first-child, .catalog-empty h3 { color: #b57aa5; }
+.catalog-empty p { color: #92778c; }
+footer { color: #9b6a8c; background: #ffeff8d9; border-top: 3px double #d7abc8; }
+.footer-dot { color: #c479a8; }
+.toast { border: 2px solid #b785ae; border-radius: 5px; color: #754b70; background: linear-gradient(#fff7fd, #edd4e9); box-shadow: inset 0 0 0 2px white, 4px 4px #b993b477; }
+.error-panel, .loading { color: #95658a; }
+@media (max-width: 620px) {
+  .intro { padding-left: 0; padding-right: 0; }
+  .intro h1 { font-size: 34px; }
+  .welcome-caption h2 { font-size: 23px; }
+  .panel { box-shadow: inset 0 0 0 3px white, 3px 3px #d7b5cd; }
+  .house-top h1 { font-size: 23px; }
+  .account-panel h2 { font-size: 22px; }
+}
