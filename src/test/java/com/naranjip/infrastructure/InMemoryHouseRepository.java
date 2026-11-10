@@ -24,5 +24,6 @@ public class InMemoryHouseRepository implements HouseRepository {
         return house;
     }
     @Override public void save(HouseState house) {}
+    @Override public boolean isMember(String houseId,String accountId) { return houseId.equals(accountId); }
     @Override public void remove(String id) { houses.remove(id); }
 }

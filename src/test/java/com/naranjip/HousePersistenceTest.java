@@ -32,7 +32,8 @@ class HousePersistenceTest {
         var result=mvc.perform(post("/api/auth/register").with(csrf()).contentType("application/json")
             .content(json.writeValueAsString(Map.of("loginId",name,"email",name+"@example.com","password",password))))
             .andExpect(status().isCreated()).andReturn();
-        return new Account(name,json.readTree(result.getResponse().getContentAsString()).at("/user/houseId").asText(),
+        mvc.perform(post("/api/houses").session((MockHttpSession)result.getRequest().getSession(false)).with(csrf())).andExpect(status().isOk());
+        return new Account(name,json.readTree(result.getResponse().getContentAsString()).at("/user/accountId").asText(),
             (MockHttpSession)result.getRequest().getSession(false));
     }
     HouseState.Snapshot add(String house,String type,int x,int y,boolean rotation,String wall,String parent) {

@@ -18,18 +18,19 @@ public class JdbcHouseRepository implements HouseRepository {
         // Serialize first-house creation for concurrent logins to the same account.
         var accounts = jdbc.queryForList("SELECT id FROM accounts WHERE id = ? FOR UPDATE", key);
         if (accounts.isEmpty()) throw new PlacementException("회원을 찾을 수 없어요.");
-        if (jdbc.queryForObject("SELECT COUNT(*) FROM houses WHERE id = ?", Integer.class, key) == 0) {
-            jdbc.update("INSERT INTO houses(id, owner_id) VALUES (?, ?)", key, key);
-        }
+        var existing=jdbc.queryForList("SELECT house_id FROM house_members WHERE account_id=?",UUID.class,key);
+        if(!existing.isEmpty())return find(existing.getFirst().toString());
+        jdbc.update("INSERT INTO houses(id) VALUES (?)",key);
+        jdbc.update("INSERT INTO house_members(account_id,house_id) VALUES (?,?)",key,key);
         return find(id);
     }
 
     @Override @Transactional public HouseState find(String id) {
         UUID key = UUID.fromString(id);
         // Caller holds a transaction throughout validation + save. Locks work across app instances.
-        var rows = jdbc.query("SELECT id, owner_id, revision FROM houses WHERE id=? FOR UPDATE",
+        var rows = jdbc.query("SELECT id, revision FROM houses WHERE id=? FOR UPDATE",
             (rs, index) -> {
-                String owner = jdbc.queryForObject("SELECT login_id FROM accounts WHERE id=?", String.class, rs.getObject("owner_id",UUID.class));
+                String owner = String.join(" ♡ ",jdbc.queryForList("SELECT a.login_id FROM house_members m JOIN accounts a ON a.id=m.account_id WHERE m.house_id=? ORDER BY m.joined_at,a.id",String.class,key));
                 HouseState state = new HouseState(rs.getObject("id",UUID.class).toString(),owner);
                 state.revision = rs.getLong("revision"); return state;
             }, key);
@@ -57,4 +58,7 @@ public class JdbcHouseRepository implements HouseRepository {
         }
     }
     @Override @Transactional public void remove(String id) { jdbc.update("DELETE FROM houses WHERE id=?",UUID.fromString(id)); }
+    @Override public boolean isMember(String houseId,String accountId) {
+        return jdbc.queryForObject("SELECT COUNT(*) FROM house_members WHERE house_id=? AND account_id=?",Integer.class,UUID.fromString(houseId),UUID.fromString(accountId))>0;
+    }
 }

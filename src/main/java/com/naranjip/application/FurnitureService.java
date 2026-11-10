@@ -15,6 +15,17 @@ public class FurnitureService {
         this.repository = repository; this.catalog = catalog;
     }
     public record Placement(String typeId, int x, int y, boolean rotation, String wall, String parentId, long revision) {}
+    private void authorizeMember(String houseId,String accountId) {
+        repository.find(houseId); // Lock the house until validation and mutation commit.
+        if(!repository.isMember(houseId,accountId))throw new PlacementException("현재 소속된 집이 아니에요. 다시 불러와 주세요.");
+    }
+    public Snapshot readForMember(String houseId,String accountId) { authorizeMember(houseId,accountId);return read(houseId); }
+    public Snapshot placeForMember(String houseId,String accountId,String furnitureId,Placement input) {
+        authorizeMember(houseId,accountId);return place(houseId,furnitureId,input);
+    }
+    public Snapshot deleteForMember(String houseId,String accountId,String id,long revision,boolean cascade) {
+        authorizeMember(houseId,accountId);return delete(houseId,id,revision,cascade);
+    }
     public Snapshot read(String houseId) {
         HouseState house = repository.find(houseId);
         synchronized (house) { return snapshot(house); }

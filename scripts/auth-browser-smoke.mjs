@@ -34,7 +34,9 @@ try{
  assert.equal(await evaluate("document.querySelector('#email-error').textContent"),'이메일을 입력해 주세요.');
  await screenshot('register-required.png');
  await evaluate(`document.querySelector('#email').value=${JSON.stringify(email)};document.querySelector('#login-id').value=${JSON.stringify(id)};document.querySelector('#password').value=${JSON.stringify(password)};`);
- await click('#auth-form button[type=submit]');await wait("!!document.querySelector('.viewer-canvas')");
+ await click('#auth-form button[type=submit]');await wait("!!document.querySelector('[data-create-house]')");
+ await evaluate("(async()=>{const {apiFetch}=await import('/api-client.js');const r=await apiFetch('/api/houses',{method:'POST'});if(!r.ok)throw Error('create house failed');location.hash='#house';})()");
+ await wait("!!document.querySelector('.viewer-canvas')");
  const me=await evaluate("(async()=> (await fetch('/api/me')).json())()");
  assert.equal(me.user.displayName,id);
  await click('a[href="#edit"]');await wait("document.querySelectorAll('.furniture-card').length===11");

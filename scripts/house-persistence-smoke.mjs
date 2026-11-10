@@ -26,6 +26,8 @@ let fixture;
 if(mode==='prepare') {
   const loginId='hp'+Date.now();
   const {user}=await request('/api/auth/register','POST',{loginId,email:loginId+'@example.com',password});
+  const created=await request('/api/houses','POST',{});
+  user.houseId=created.houseId;
   const route='/api/houses/'+user.houseId;
   let house=await request(route);
   async function place(typeId,x,y,rotation=false,wall=null,parentId=null,id=null) {
