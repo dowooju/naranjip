@@ -18,8 +18,9 @@ public class AuthController {
     private final HouseRepository houses;
     private final FurnitureService furniture;
     private final CoupleService couples;
-    public AuthController(AccountService accounts, HouseRepository houses, FurnitureService furniture, CoupleService couples) {
-        this.accounts=accounts; this.houses=houses; this.furniture=furniture; this.couples=couples;
+    private final SocialService social;
+    public AuthController(AccountService accounts, HouseRepository houses, FurnitureService furniture, CoupleService couples, SocialService social) {
+        this.accounts=accounts; this.houses=houses; this.furniture=furniture; this.couples=couples;this.social=social;
     }
     public record LoginInput(
         @NotBlank(message="아이디를 입력해 주세요.") @Size(max=40,message="아이디가 너무 길어요.") String loginId,
@@ -29,13 +30,17 @@ public class AuthController {
         @NotBlank(message="이메일을 입력해 주세요.") @Email(message="올바른 이메일 주소를 입력해 주세요.") @Size(max=254,message="이메일이 너무 길어요.") String email,
         @NotBlank(message="비밀번호를 입력해 주세요.") @Size(min=8,max=72,message="비밀번호는 8자 이상, 72바이트 이내로 입력해 주세요.") String password) {}
     public record Resident(String displayName, String houseId) implements Serializable {}
-    public record User(String accountId,String displayName,String houseId,boolean canEdit,String partnerName) {}
+    public record User(String accountId,String displayName,String houseId,boolean canEdit,String partnerName,boolean admin) {}
     public record Me(boolean authenticated, User user) {}
     public String accountId(HttpServletRequest request) {
+        String id=optionalAccountId(request);
+        if(id==null)throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        return id;
+    }
+    public String optionalAccountId(HttpServletRequest request) {
         HttpSession session=request.getSession(false);
         Resident resident=session==null?null:(Resident)session.getAttribute("resident");
-        if(resident==null)throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
-        return resident.houseId();
+        return resident==null?null:resident.houseId();
     }
 
     @GetMapping("/csrf") public Map<String,String> csrf(CsrfToken token) {
@@ -46,7 +51,7 @@ public class AuthController {
         Resident resident = session == null ? null : (Resident)session.getAttribute("resident");
         if(resident==null)return new Me(false,null);
         var status=couples.status(resident.houseId());
-        return new Me(true,new User(resident.houseId(),resident.displayName(),status.houseId(),status.canEdit(),status.partner()==null?null:status.partner().displayName()));
+        return new Me(true,new User(resident.houseId(),resident.displayName(),status.houseId(),status.canEdit(),status.partner()==null?null:status.partner().displayName(),social.isAdmin(resident.houseId())));
     }
     @PostMapping("/auth/register")
     @ResponseStatus(HttpStatus.CREATED)
@@ -74,8 +79,5 @@ public class AuthController {
         if(user==null)throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         if(!id.equals(user.houseId()))throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         return furniture.readForMember(id,user.accountId());
-    }
-    @GetMapping("/rankings") public Map<String,Object> rankings() {
-        return Map.of("status","coming-soon","houses",java.util.List.of());
     }
 }
