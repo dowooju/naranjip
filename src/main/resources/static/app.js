@@ -1,3 +1,4 @@
+import { coupleMarkup, mountCouple } from './couple.js';
 import { roomSvg } from './room.js';
 import { editorMarkup, mountEditor } from './editor.js';
 import { createScene } from './furniture-scene.js';
@@ -14,9 +15,9 @@ let currentEditor = null;
 let currentScene = null;
 const escape = value => String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 
-async function api(path, body) {
+async function api(path, body, method='POST') {
   const response = await apiFetch(`/api${path}`, body === undefined ? {} : {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
   });
   if (!response.ok) {
     let details = {};
@@ -43,7 +44,7 @@ function ranking() {
 }
 
 function authPanel(register = false) {
-  if (me.authenticated) return `<section class="panel account-panel"><span class="avatar">${escape(me.user.displayName.slice(0,1))}</span><p class="eyebrow">WELCOME HOME</p><h2>${escape(me.user.displayName)}님,<br>집에 잘 오셨어요.</h2><p class="muted">아직 비어 있어도 괜찮아요.<br>우리의 시작이 담긴 공간이니까.</p><a class="button primary full" href="#house">우리집 가기 <span>↗</span></a><div class="session-note">꾸민 집은 자동 저장돼요. 다음에도 그대로 만나요.</div></section>`;
+  if (me.authenticated) return `<section class="panel account-panel"><span class="avatar">${escape(me.user.displayName.slice(0,1))}</span><p class="eyebrow">WELCOME HOME</p><h2>${escape(me.user.displayName)}님,<br>집에 잘 오셨어요.</h2><p class="muted">${me.user.partnerName ? escape(me.user.displayName)+' ♡ '+escape(me.user.partnerName) : '혼자 시작해도, 함께 채워도 좋아요.'}</p>${me.user.houseId ? '<a class="button primary full" href="#house">우리의 집 가기 ↗</a>' : '<a class="button primary full" href="#couple">새 집 만들기 / 초대 코드 입력</a>'}<a class="button secondary full" href="#couple">♡ ${me.user.partnerName ? escape(me.user.partnerName)+'님 프로필' : '커플 연결하기'}</a><div class="session-note">꾸민 집은 자동 저장돼요. 다음에도 그대로 만나요.</div></section>`;
   return `<section class="panel account-panel"><span class="small-house">⌂</span><p class="eyebrow">${register ? 'A NEW BEGINNING' : 'MAKE YOURSELF AT HOME'}</p><h2>${register ? '우리의 첫 페이지를<br>열어볼까요?' : '우리의 공간에<br>어서 오세요.'}</h2><p class="muted">${register ? '나란집에서 함께할 이름을 알려주세요.' : '나란히 앉아, 같은 집을 꿈꾸는 곳.'}</p>
     <form id="auth-form" data-mode="${register ? 'register' : 'login'}" novalidate>
       ${register ? '<label for="email">이메일</label><input id="email" name="email" type="email" placeholder="hello@naranjip.com" autocomplete="email" required maxlength="254" aria-describedby="email-error"><p id="email-error" class="field-error" data-error="email" aria-live="polite"></p>' : ''}
@@ -60,9 +61,9 @@ function home(register) {
 }
 
 function houseScreen(house) {
-  return `<section class="house-top"><div><a class="back-link" href="#home">← 마을로 돌아가기</a><h1>우리집에 오신 걸 환영해요.</h1><p>${escape(house.ownerName)}님의 작은 공간</p></div><a class="button primary" href="#edit">수정하기 ↗</a></section>
+  return `<section class="house-top"><div><a class="back-link" href="#home">← 마을로 돌아가기</a><h1>우리집에 오신 걸 환영해요.</h1><p>${escape(house.ownerName)}님의 작은 공간</p></div>${me.user.canEdit ? '<a class="button primary" href="#edit">수정하기 ↗</a>' : '<span class="pill">상대방이 꾸미는 우리집 ♡</span>'}</section>
     <div class="house-layout"><section class="panel house-stage"><div class="room-heading"><span class="pill"><span class="status-dot"></span> 우리의 첫 번째 집</span><span class="room-number">MY HOME</span></div><div class="large-room"></div><div class="stage-bottom"><span>우리의 취향이 하나씩 쌓이는 집.</span><div class="zoom-controls"><button data-zoom="-" aria-label="집 축소">−</button><span id="zoom-label">${Math.round(zoom*100)}%</span><button data-zoom="+" aria-label="집 확대">+</button></div></div></section>
-    <aside class="panel house-sidebar"><p class="eyebrow">OUR LITTLE PLACE</p><h2>작은 집, 큰 마음.</h2><p class="muted">좋아하는 마음도, 짧은 안부도.<br>이곳에 차곡차곡 남겨볼까요?</p><div class="reaction-buttons"><button class="reaction" data-placeholder="좋아요"><span>♡</span><span>좋아요</span><small>준비 중</small></button><button class="reaction" data-placeholder="콘셉트 좋아요"><span>✧</span><span>콘셉트 좋아요</span><small>준비 중</small></button><button class="reaction" data-placeholder="코멘트"><span>☏</span><span>코멘트</span><small>준비 중</small></button></div><div class="aside-note"><span>⌂</span><p>좋아하는 것 하나, 추억 하나.<br>조금씩 우리다운 공간으로.</p></div></aside></div>`;
+    <aside class="panel house-sidebar"><p class="eyebrow">OUR LITTLE PLACE</p><h2>작은 집, 큰 마음.</h2><a class="button secondary full" href="#couple">♡ ${me.user.partnerName ? escape(me.user.partnerName)+'님 프로필' : '커플 연결하기'}</a><button class="button secondary full" data-house-refresh>최신 집 불러오기 ↻</button><p class="muted">좋아하는 마음도, 짧은 안부도.<br>이곳에 차곡차곡 남겨볼까요?</p><div class="reaction-buttons"><button class="reaction" data-placeholder="좋아요"><span>♡</span><span>좋아요</span><small>준비 중</small></button><button class="reaction" data-placeholder="콘셉트 좋아요"><span>✧</span><span>콘셉트 좋아요</span><small>준비 중</small></button><button class="reaction" data-placeholder="코멘트"><span>☏</span><span>코멘트</span><small>준비 중</small></button></div><div class="aside-note"><span>⌂</span><p>좋아하는 것 하나, 추억 하나.<br>조금씩 우리다운 공간으로.</p></div></aside></div>`;
 }
 async function render() {
   if (currentEditor?.pending) {
@@ -74,10 +75,21 @@ async function render() {
   currentScene?.destroy(); currentScene = null;
   const version = ++renderVersion;
   const route = location.hash || '#home';
+  try { me = await api('/me'); } catch(error) { toast(error.message); return; }
+  if(version!==renderVersion)return;
+  if((route==='#house'||route==='#edit') && me.authenticated && !me.user.houseId) { location.hash='#couple'; return; }
+  if(route==='#edit' && me.authenticated && !me.user.canEdit) { location.hash='#house'; toast('꾸미기는 집 주인만 할 수 있어요.'); return; }
   document.body.classList.toggle('editor-active', route === '#edit' && me.authenticated);
   document.querySelector('#header-user').textContent = me.authenticated ? `${me.user.displayName}님의 공간` : '함께라서 더 좋은 집';
   document.querySelector('#logout').hidden = !me.authenticated;
-  if (route === '#house' || route === '#edit') {
+  if(route === '#couple') {
+    if(!me.authenticated){location.hash='#home';toast('먼저 로그인해 주세요.');return;}
+    app.innerHTML='<p class="loading">우리의 연결을 불러오는 중이에요…</p>';
+    try {
+      const data=await api('/couple'); if(version!==renderVersion)return;
+      app.innerHTML=coupleMarkup(data); mountCouple(app,api,render,toast,data);
+    } catch(error) { if(version===renderVersion)app.innerHTML=`<div class="error-panel"><p>${escape(error.message)}</p><a class="button secondary" href="#home">홈으로</a></div>`; }
+  } else if (route === '#house' || route === '#edit') {
     if (!me.authenticated) { location.hash = '#home'; toast('먼저 로그인하고 우리집에 들어가세요.'); return; }
     app.innerHTML = '<p class="loading">우리집을 불러오는 중이에요…</p>';
     try {
@@ -100,7 +112,7 @@ async function render() {
         currentScene = scene;
         currentScene.zoom(zoom);
         app.querySelector('.stage-bottom>span').textContent = house.furniture.length ? '우리의 취향이 하나씩 쌓이는 집.' : '수정하기에서 첫 가구를 놓아 보세요.';
-        app.querySelector('.house-top p').textContent = `${house.ownerName}님의 작은 공간 · 8 × 8 · 가구 ${house.furniture.length}개`;
+        app.querySelector('.house-top p').textContent = `${me.user.partnerName ? me.user.displayName+' ♡ '+me.user.partnerName : house.ownerName+'님의 작은 공간'} · 8 × 8 · 가구 ${house.furniture.length}개`;
       }
     } catch (error) {
       if (version !== renderVersion) return;
@@ -112,6 +124,7 @@ async function render() {
 }
 
 app.addEventListener('click', event => {
+  if(event.target.closest('[data-house-refresh]'))render();
   const tabButton = event.target.closest('[data-tab]');
   if (tabButton) { tab = tabButton.dataset.tab; render().then(() => app.querySelector(`[data-tab="${tab}"]`)?.focus()); }
   const placeholder = event.target.closest('[data-placeholder]');
@@ -140,7 +153,7 @@ app.addEventListener('submit', async event => {
     me = await api(`/auth/${form.dataset.mode}`, input);
     form.reset();
     location.hash = '#house';
-    toast('환영해요! 우리의 첫 번째 집이 준비됐어요.');
+    toast('환영해요! 나란집에 잘 오셨어요.');
   } catch (error) { showAuthErrors(form, error.fields || {}); form.querySelector('#form-error').textContent = error.message; button.disabled = false; }
 });
 
