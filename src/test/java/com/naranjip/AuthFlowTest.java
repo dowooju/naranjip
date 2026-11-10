@@ -41,7 +41,8 @@ class AuthFlowTest {
         assertEquals(crypto.lookup(email),row.get("email_lookup_hash"));
         assertNotEquals(crypto.encrypt(email),crypto.encrypt(email));
         var session=(MockHttpSession)response.getRequest().getSession(false);
-        String house=json.readTree(text).at("/user/houseId").asText();
+        mvc.perform(post("/api/houses").session(session).with(csrf())).andExpect(status().isOk());
+        String house=json.readTree(text).at("/user/accountId").asText();
         mvc.perform(get("/api/houses/"+house).session(session)).andExpect(status().isOk());
         mvc.perform(get("/api/houses/other").session(session)).andExpect(status().isNotFound());
         mvc.perform(get("/api/houses/"+house)).andExpect(status().isUnauthorized());

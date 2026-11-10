@@ -28,20 +28,21 @@ public class FurnitureController {
     }
     @PostMapping("/houses/{houseId}/furniture")
     public HouseState.Snapshot add(@PathVariable String houseId, @RequestBody FurnitureService.Placement placement, HttpServletRequest request) {
-        authorize(houseId, request); return service.place(houseId, null, placement);
+        authorize(houseId, request); return service.placeForMember(houseId, auth.accountId(request), null, placement);
     }
     @PutMapping("/houses/{houseId}/furniture/{id}")
     public HouseState.Snapshot move(@PathVariable String houseId, @PathVariable String id, @RequestBody FurnitureService.Placement placement, HttpServletRequest request) {
-        authorize(houseId, request); return service.place(houseId, id, placement);
+        authorize(houseId, request); return service.placeForMember(houseId, auth.accountId(request), id, placement);
     }
     @DeleteMapping("/houses/{houseId}/furniture/{id}")
     public HouseState.Snapshot delete(@PathVariable String houseId, @PathVariable String id, @RequestParam long revision,
             @RequestParam(defaultValue="false") boolean cascade, HttpServletRequest request) {
-        authorize(houseId, request); return service.delete(houseId, id, revision, cascade);
+        authorize(houseId, request); return service.deleteForMember(houseId, auth.accountId(request), id, revision, cascade);
     }
     private void authorize(String houseId, HttpServletRequest request) {
-        AuthController.Resident user = auth.me(request).user();
+        AuthController.User user = auth.me(request).user();
         if (user == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
-        if (!user.houseId().equals(houseId)) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        if (!houseId.equals(user.houseId())) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        if (!user.canEdit()) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
     }
 }

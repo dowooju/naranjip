@@ -20,7 +20,8 @@ class FurnitureApiTest {
         mvc.perform(get("/api/catalog")).andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(11));
         var login=mvc.perform(post("/api/auth/register").with(csrf()).contentType("application/json").content("{\"loginId\":\"decorator\",\"email\":\"decorator@example.com\",\"password\":\"TestPassword123!\"}")).andExpect(status().isCreated()).andReturn();
         var session=(MockHttpSession)login.getRequest().getSession(false);
-        String id=json.readTree(login.getResponse().getContentAsString()).at("/user/houseId").asText();
+        mvc.perform(post("/api/houses").session(session).with(csrf())).andExpect(status().isOk());
+        String id=json.readTree(login.getResponse().getContentAsString()).at("/user/accountId").asText();
         String route="/api/houses/"+id+"/furniture";
         String payload="{\"typeId\":\"chair\",\"x\":2,\"y\":2,\"rotation\":false,\"revision\":0}";
         mvc.perform(post(route).with(csrf()).contentType("application/json").content(payload)).andExpect(status().isUnauthorized());

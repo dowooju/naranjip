@@ -17,8 +17,9 @@ public class AuthController {
     private final AccountService accounts;
     private final HouseRepository houses;
     private final FurnitureService furniture;
-    public AuthController(AccountService accounts, HouseRepository houses, FurnitureService furniture) {
-        this.accounts=accounts; this.houses=houses; this.furniture=furniture;
+    private final CoupleService couples;
+    public AuthController(AccountService accounts, HouseRepository houses, FurnitureService furniture, CoupleService couples) {
+        this.accounts=accounts; this.houses=houses; this.furniture=furniture; this.couples=couples;
     }
     public record LoginInput(
         @NotBlank(message="아이디를 입력해 주세요.") @Size(max=40,message="아이디가 너무 길어요.") String loginId,
@@ -28,7 +29,14 @@ public class AuthController {
         @NotBlank(message="이메일을 입력해 주세요.") @Email(message="올바른 이메일 주소를 입력해 주세요.") @Size(max=254,message="이메일이 너무 길어요.") String email,
         @NotBlank(message="비밀번호를 입력해 주세요.") @Size(min=8,max=72,message="비밀번호는 8자 이상, 72바이트 이내로 입력해 주세요.") String password) {}
     public record Resident(String displayName, String houseId) implements Serializable {}
-    public record Me(boolean authenticated, Resident user) {}
+    public record User(String accountId,String displayName,String houseId,boolean canEdit,String partnerName) {}
+    public record Me(boolean authenticated, User user) {}
+    public String accountId(HttpServletRequest request) {
+        HttpSession session=request.getSession(false);
+        Resident resident=session==null?null:(Resident)session.getAttribute("resident");
+        if(resident==null)throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        return resident.houseId();
+    }
 
     @GetMapping("/csrf") public Map<String,String> csrf(CsrfToken token) {
         return Map.of("token",token.getToken(),"headerName",token.getHeaderName());
@@ -36,7 +44,9 @@ public class AuthController {
     @GetMapping("/me") public Me me(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
         Resident resident = session == null ? null : (Resident)session.getAttribute("resident");
-        return new Me(resident != null,resident);
+        if(resident==null)return new Me(false,null);
+        var status=couples.status(resident.houseId());
+        return new Me(true,new User(resident.houseId(),resident.displayName(),status.houseId(),status.canEdit(),status.partner()==null?null:status.partner().displayName()));
     }
     @PostMapping("/auth/register")
     @ResponseStatus(HttpStatus.CREATED)
@@ -51,9 +61,8 @@ public class AuthController {
         HttpSession previous=request.getSession(false);
         if(previous!=null)previous.invalidate();
         Resident resident=new Resident(account.loginId(),account.id().toString());
-        houses.create(resident.houseId(),resident.displayName());
         request.getSession(true).setAttribute("resident",resident);
-        return new Me(true,resident);
+        return me(request);
     }
     @PostMapping("/auth/logout") @ResponseStatus(HttpStatus.NO_CONTENT)
     public void logout(HttpServletRequest request) {
@@ -61,11 +70,10 @@ public class AuthController {
         if(session!=null)session.invalidate();
     }
     @GetMapping("/houses/{id}") public HouseState.Snapshot house(@PathVariable String id,HttpServletRequest request) {
-        Resident user=me(request).user();
+        User user=me(request).user();
         if(user==null)throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
-        if(!user.houseId().equals(id))throw new ResponseStatusException(HttpStatus.NOT_FOUND);
-        houses.create(id,user.displayName());
-        return furniture.read(id);
+        if(!id.equals(user.houseId()))throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        return furniture.readForMember(id,user.accountId());
     }
     @GetMapping("/rankings") public Map<String,Object> rankings() {
         return Map.of("status","coming-soon","houses",java.util.List.of());
