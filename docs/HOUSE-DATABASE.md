@@ -2,6 +2,8 @@
 
 모든 회원의 가구는 하나의 placed_furniture 테이블에 저장하고 house_id로 구분합니다. 그림은 기존 PNG atlas를 그대로 사용하며 DB에 이미지 바이너리를 넣지 않습니다. S3 없이도 배치 저장이 가능합니다.
 
+최신 커플 멤버십과 초대는 [커플 초대 설계](COUPLE-INVITES.md)를 참고하세요. V3부터 houses.owner_id 대신 house_members로 소유 관계를 관리하며 가입 후 새 집 만들기 또는 초대 수락을 선택합니다. 아래는 V2 도입 시점의 구조입니다.
+
 ## 테이블
 
 Flyway V2__persist_house_layouts.sql이 기존 accounts를 보존하고 아래 테이블을 추가합니다. 기존 회원에게 빈 집을 생성하고 신규 회원의 집은 가입 시 생성합니다. 이전 서버 메모리의 배치는 이 마이그레이션으로 이전되지 않습니다.

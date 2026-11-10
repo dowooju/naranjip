@@ -23,7 +23,9 @@ try {
  await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1100,deviceScaleFactor:1,mobile:false});
  await send('Page.navigate',{url:base+'/#signup'});await wait("document.querySelector('#auth-form')?.dataset.mode==='register'");
  await evaluate(`document.querySelector('#email').value=${JSON.stringify(id+'@example.com')};document.querySelector('#login-id').value=${JSON.stringify(id)};document.querySelector('#password').value=${JSON.stringify(password)};`);
- await click('#auth-form button[type=submit]');await wait("!!document.querySelector('.viewer-canvas')");
+ await click('#auth-form button[type=submit]');await wait("!!document.querySelector('[data-create-house]')");
+ await evaluate("(async()=>{const {apiFetch}=await import('/api-client.js');const r=await apiFetch('/api/houses',{method:'POST'});if(!r.ok)throw Error('create house failed');location.hash='#house';})()");
+ await wait("!!document.querySelector('.viewer-canvas')");
  const me=await evaluate("(async()=> (await fetch('/api/me')).json())()");
  const readHouse=()=>evaluate(`(async()=> (await fetch('/api/houses/${me.user.houseId}')).json())()`);
  await writeFile(path.join(output,'test-account.json'),JSON.stringify({id,houseId:me.user.houseId},null,2));
