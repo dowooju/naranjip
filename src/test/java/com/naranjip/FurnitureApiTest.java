@@ -22,7 +22,7 @@ class FurnitureApiTest {
         var session=(MockHttpSession)login.getRequest().getSession(false);
         String id=json.readTree(login.getResponse().getContentAsString()).at("/user/houseId").asText();
         String route="/api/houses/"+id+"/furniture";
-        String payload="{\"typeId\":\"chair\",\"x\":2,\"y\":2,\"rotation\":0,\"revision\":0}";
+        String payload="{\"typeId\":\"chair\",\"x\":2,\"y\":2,\"rotation\":false,\"revision\":0}";
         mvc.perform(post(route).with(csrf()).contentType("application/json").content(payload)).andExpect(status().isUnauthorized());
         mvc.perform(post("/api/houses/someone-else/furniture").with(csrf()).session(session).contentType("application/json").content(payload)).andExpect(status().isNotFound());
         var placed=mvc.perform(post(route).with(csrf()).session(session).contentType("application/json").content(payload))

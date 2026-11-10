@@ -10,17 +10,17 @@ test('isometric grid inversion respects each cell center',()=>{
   for(let x=0;x<8;x++)for(let y=0;y<8;y++)assert.deepEqual(floorCell(iso(x+.5,y+.5)),{x,y});
 });
 test('preview detects overlap, rotated footprint, boundary and rug layers',()=>{
-  const house={furniture:[{id:'s',typeId:'sofa',x:2,y:2,rotation:90}]};
+  const house={furniture:[{id:'s',typeId:'sofa',x:2,y:2,rotation:true}]};
   const valid=item=>validatePlacement(item,house,types).valid;
-  assert.equal(valid({typeId:'chair',x:2,y:3,rotation:0}),false);
-  assert.equal(valid({typeId:'chair',x:3,y:2,rotation:0}),true);
-  assert.equal(valid({typeId:'sofa',x:7,y:7,rotation:0}),false);
-  assert.equal(valid({typeId:'rug',x:2,y:2,rotation:0}),true);
-  assert.equal(valid({id:'s',typeId:'sofa',x:2,y:2,rotation:0}),true);
+  assert.equal(valid({typeId:'chair',x:2,y:3,rotation:false}),false);
+  assert.equal(valid({typeId:'chair',x:3,y:2,rotation:false}),true);
+  assert.equal(valid({typeId:'sofa',x:7,y:7,rotation:false}),false);
+  assert.equal(valid({typeId:'rug',x:2,y:2,rotation:false}),true);
+  assert.equal(valid({id:'s',typeId:'sofa',x:2,y:2,rotation:false}),true);
 });
 test('doors and frame attachment limits',()=>{
-  assert.equal(validatePlacement({typeId:'door',x:2,y:2,rotation:0},{furniture:[]},types).valid,false);
-  assert.equal(validatePlacement({typeId:'door',x:2,y:0,wall:'right',rotation:0},{furniture:[]},types).valid,true);
+  assert.equal(validatePlacement({typeId:'door',x:2,y:2,rotation:false},{furniture:[]},types).valid,false);
+  assert.equal(validatePlacement({typeId:'door',x:2,y:0,wall:'right',rotation:false},{furniture:[]},types).valid,true);
   const house={furniture:[{id:'d',typeId:'desk'}, {id:'f1',typeId:'frame',parentId:'d'}, {id:'f2',typeId:'frame',parentId:'d'}]};
   assert.equal(validatePlacement({typeId:'frame',parentId:'d'},house,types).valid,false);
   assert.equal(validatePlacement({id:'f1',typeId:'frame',parentId:'d'},house,types).valid,true);

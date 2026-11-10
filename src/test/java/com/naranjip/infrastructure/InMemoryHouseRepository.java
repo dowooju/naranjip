@@ -1,10 +1,10 @@
 package com.naranjip.infrastructure;
 
 import com.naranjip.application.*;
-import org.springframework.stereotype.Repository;
+
 import java.util.concurrent.ConcurrentHashMap;
 
-@Repository
+
 public class InMemoryHouseRepository implements HouseRepository {
     private final ConcurrentHashMap<String, HouseState> houses = new ConcurrentHashMap<>();
     @Override public synchronized HouseState create(String id, String owner) {
@@ -23,5 +23,6 @@ public class InMemoryHouseRepository implements HouseRepository {
         house.touchedAt = System.currentTimeMillis();
         return house;
     }
+    @Override public void save(HouseState house) {}
     @Override public void remove(String id) { houses.remove(id); }
 }

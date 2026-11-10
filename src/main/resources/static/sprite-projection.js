@@ -34,7 +34,7 @@ export function furnitureMatrix(item,type,sprite) {
   }
   const points=contacts[type.id]||contacts.chair;
   const w=type.width,h=type.height;
-  const targets=item.rotation%180===90
+  const targets=item.rotation
     ? [iso(item.x+h,item.y),iso(item.x+h,item.y+w),iso(item.x,item.y+w)]
     : [iso(item.x,item.y+h),iso(item.x+w,item.y+h),iso(item.x+w,item.y)];
   return affine(points.map(([x,y])=>[x*sprite.sw,y*sprite.sh]), targets);
@@ -46,7 +46,7 @@ export function furniturePieces(item,type,sprite) {
     // Restore the original unwarped plant artwork and its original catalog size.
     const [w,h]=dimensions(type,item.rotation),base=iso(item.x+w/2,item.y+h/2);
     const scale=Math.min(type.drawWidth/sprite.sw,type.drawHeight/sprite.sh);
-    const flipped=item.rotation%180===90;
+    const flipped=item.rotation;
     return [{matrix:new DOMMatrix([flipped?-scale:scale,0,0,scale,
       base.x+(flipped?1:-1)*sprite.sw*scale/2,base.y-sprite.sh*scale+7]),clip:rectangle}];
   }
@@ -55,7 +55,7 @@ export function furniturePieces(item,type,sprite) {
   // Never shear, split, clip lace borders, or independently stretch x/y again.
   const [w,h]=dimensions(type,item.rotation);
   let span=32*(w+h), left=iso(item.x,item.y+h).x, bottom=iso(item.x+w,item.y+h).y;
-  let flipped=item.rotation%180===90;
+  let flipped=item.rotation;
   if(type.kind==='wall') {
     span=32*1.4;
     const anchor=item.wall==='left'?iso(0,item.y+1.7):iso(item.x+.3,0);

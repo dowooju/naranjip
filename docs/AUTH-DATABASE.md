@@ -2,7 +2,7 @@
 
 ## 이번 범위
 아이디/비밀번호 로그인, 이메일/아이디/비밀번호 회원가입, 필드별 오류, 로그아웃, PostgreSQL 회원 저장.
-가구/집은 여전히 서버 메모리에만 존재합니다. 같은 서버에서 재로그인하면 계정별 집을 재사용하지만 서버 재시작 시 배치는 사라집니다. 이메일 인증, 계정 복구, 집 DB 저장은 다음 단계입니다.
+집/가구 배치도 PostgreSQL에 저장합니다. 상세 스키마는 [집 DB 설계](HOUSE-DATABASE.md)를 참고하세요. 이메일 인증과 계정 복구는 다음 단계입니다.
 
 ## 회원 테이블
 Flyway가 `V1__create_accounts.sql`을 최초 실행하고 이력을 기록합니다.
@@ -46,9 +46,6 @@ node --test scripts/placement.test.mjs scripts/auth-validation.test.mjs
 ```
 자동 테스트의 H2는 PostgreSQL 호환 모드이며 테스트 전용 고정 키만 사용합니다. 실제 PostgreSQL 연결, 재시작 후 로그인, 브라우저 입력 오류/회원가입/로그인은 별도로 확인합니다.
 브라우저 회귀 검사는 Chrome 디버그 포트 9223을 사용하는 `scripts/auth-browser-smoke.mjs`로 실행합니다.
-
-## 다음 DB 설계 논의
-집 저장 단계에서는 `houses(id, owner_id FK accounts.id, ...)`와 `placed_furniture(id, house_id FK houses.id, type_id, x, y, rotation, parent_id, ...)`로 나눌 수 있습니다. 그림 바이너리는 DB에 넣지 않고 파일/S3에 두며 가구 종류에 asset key를 연결합니다. 이 스키마는 아직 구현하지 않았습니다.
 
 ## 근거
 - [Spring Security password storage](https://docs.spring.io/spring-security/reference/features/authentication/password-storage.html)

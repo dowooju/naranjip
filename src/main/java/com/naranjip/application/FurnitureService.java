@@ -1,18 +1,20 @@
 package com.naranjip.application;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.UUID;
 import java.util.List;
 import static com.naranjip.application.HouseState.*;
 
 @Service
+@Transactional
 public class FurnitureService {
     private final HouseRepository repository;
     private final FurnitureCatalog catalog;
     public FurnitureService(HouseRepository repository, FurnitureCatalog catalog) {
         this.repository = repository; this.catalog = catalog;
     }
-    public record Placement(String typeId, int x, int y, int rotation, String wall, String parentId, long revision) {}
+    public record Placement(String typeId, int x, int y, boolean rotation, String wall, String parentId, long revision) {}
     public Snapshot read(String houseId) {
         HouseState house = repository.find(houseId);
         synchronized (house) { return snapshot(house); }
@@ -25,9 +27,6 @@ public class FurnitureService {
             String typeId = old == null ? request.typeId() : old.typeId();
             FurnitureCatalog.Type type = catalog.require(typeId);
             if (old == null && house.furniture.size() >= 150) throw new PlacementException("한 집에는 최대 150개까지 놓을 수 있어요.");
-            if (request.rotation() < 0 || request.rotation() > 270 || request.rotation() % 90 != 0) {
-                throw new PlacementException("회전은 90도 단위로만 가능해요.");
-            }
             int slot = -1;
             int x = request.x(), y = request.y();
             String wall = null, parentId = null;
@@ -52,7 +51,7 @@ public class FurnitureService {
                     if (!("left".equals(wall) && x == 0 || "right".equals(wall) && y == 0)) {
                         throw new PlacementException("문은 벽에 붙여 놓아 주세요.");
                     }
-                    if (request.rotation() != (wall.equals("left") ? 90 : 0)) throw new PlacementException("문 방향은 벽에 맞춰 자동으로 정해져요.");
+                    if (request.rotation() != wall.equals("left")) throw new PlacementException("문 방향은 벽에 맞춰 자동으로 정해져요.");
                 }
                 for (PlacedFurniture item : house.furniture) {
                     if (item.id().equals(furnitureId)) continue;
@@ -75,10 +74,11 @@ public class FurnitureService {
                 }
             }
             PlacedFurniture placed = new PlacedFurniture(old == null ? UUID.randomUUID().toString() : old.id(),
-                typeId, x, y, type.kind().equals("attachment") ? 0 : request.rotation(), wall, parentId, slot);
+                typeId, x, y, type.kind().equals("attachment") ? false : request.rotation(), wall, parentId, slot);
             if (old != null) house.furniture.remove(old);
             house.furniture.add(placed);
             house.revision++;
+            repository.save(house);
             return snapshot(house);
         }
     }
@@ -92,6 +92,7 @@ public class FurnitureService {
             }
             house.furniture.removeIf(item -> item.id().equals(id) || id.equals(item.parentId()));
             house.revision++;
+            repository.save(house);
             return snapshot(house);
         }
     }
@@ -103,6 +104,6 @@ public class FurnitureService {
             .orElseThrow(() -> new PlacementException("가구를 찾을 수 없어요."));
     }
     private Snapshot snapshot(HouseState house) { return new Snapshot(house.id, house.owner, 8, 8, house.revision, List.copyOf(house.furniture)); }
-    public static int width(FurnitureCatalog.Type type, int rotation) { return rotation % 180 == 0 ? type.width() : type.height(); }
-    public static int height(FurnitureCatalog.Type type, int rotation) { return rotation % 180 == 0 ? type.height() : type.width(); }
+    public static int width(FurnitureCatalog.Type type, boolean rotation) { return !rotation ? type.width() : type.height(); }
+    public static int height(FurnitureCatalog.Type type, boolean rotation) { return !rotation ? type.height() : type.width(); }
 }

@@ -43,7 +43,7 @@ function ranking() {
 }
 
 function authPanel(register = false) {
-  if (me.authenticated) return `<section class="panel account-panel"><span class="avatar">${escape(me.user.displayName.slice(0,1))}</span><p class="eyebrow">WELCOME HOME</p><h2>${escape(me.user.displayName)}님,<br>집에 잘 오셨어요.</h2><p class="muted">아직 비어 있어도 괜찮아요.<br>우리의 시작이 담긴 공간이니까.</p><a class="button primary full" href="#house">우리집 가기 <span>↗</span></a><div class="session-note">꾸민 집은 아직 서버 재시작 시 초기화돼요.</div></section>`;
+  if (me.authenticated) return `<section class="panel account-panel"><span class="avatar">${escape(me.user.displayName.slice(0,1))}</span><p class="eyebrow">WELCOME HOME</p><h2>${escape(me.user.displayName)}님,<br>집에 잘 오셨어요.</h2><p class="muted">아직 비어 있어도 괜찮아요.<br>우리의 시작이 담긴 공간이니까.</p><a class="button primary full" href="#house">우리집 가기 <span>↗</span></a><div class="session-note">꾸민 집은 자동 저장돼요. 다음에도 그대로 만나요.</div></section>`;
   return `<section class="panel account-panel"><span class="small-house">⌂</span><p class="eyebrow">${register ? 'A NEW BEGINNING' : 'MAKE YOURSELF AT HOME'}</p><h2>${register ? '우리의 첫 페이지를<br>열어볼까요?' : '우리의 공간에<br>어서 오세요.'}</h2><p class="muted">${register ? '나란집에서 함께할 이름을 알려주세요.' : '나란히 앉아, 같은 집을 꿈꾸는 곳.'}</p>
     <form id="auth-form" data-mode="${register ? 'register' : 'login'}" novalidate>
       ${register ? '<label for="email">이메일</label><input id="email" name="email" type="email" placeholder="hello@naranjip.com" autocomplete="email" required maxlength="254" aria-describedby="email-error"><p id="email-error" class="field-error" data-error="email" aria-live="polite"></p>' : ''}

@@ -1,5 +1,5 @@
 // Shared, pure client preview rules. The server independently validates every mutation.
-export const dimensions = (type, rotation = 0) => rotation % 180 === 0
+export const dimensions = (type, rotation = false) => !rotation
   ? [type.width, type.height] : [type.height, type.width];
 
 export function validatePlacement(candidate, house, types) {
@@ -53,7 +53,7 @@ export function automaticPlacement(typeId, house, types) {
     for(const parent of parents) {
       const used=house.furniture.filter(item=>item.parentId===parent.id).map(item=>item.slot);
       let slot=0;while(used.includes(slot))slot++;
-      const candidate={typeId,x:0,y:0,rotation:0,parentId:parent.id,slot};
+      const candidate={typeId,x:0,y:0,rotation:false,parentId:parent.id,slot};
       if(validatePlacement(candidate,house,types).valid)return candidate;
     }
     return null;
@@ -61,9 +61,9 @@ export function automaticPlacement(typeId, house, types) {
   const candidates=[];
   for(let y=0;y<8;y++)for(let x=0;x<8;x++) {
     if(type.kind==='wall') {
-      if(x===0)candidates.push({typeId,x,y,rotation:90,wall:'left'});
-      if(y===0)candidates.push({typeId,x,y,rotation:0,wall:'right'});
-    } else candidates.push({typeId,x,y,rotation:0});
+      if(x===0)candidates.push({typeId,x,y,rotation:true,wall:'left'});
+      if(y===0)candidates.push({typeId,x,y,rotation:false,wall:'right'});
+    } else candidates.push({typeId,x,y,rotation:false});
   }
   const distance=item=>{
     const [w,h]=dimensions(type,item.rotation);
