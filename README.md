@@ -9,16 +9,16 @@
 - 홈: 왼쪽 명예의 전당 / 이번 주 콘셉트 탭(내용은 준비 중), 가운데 빈 집, 오른쪽 로그인
 - 회원가입 및 로그인: 이메일·아이디·비밀번호로 가입 후 실제 계정 검증. 빈 입력은 필드 아래 빨간 글씨로 안내
 - 로그인 후 우리집 가기, 8×8 고정 시점 빈 집, 확대·축소
-- 전체 화면 꾸미기: 가구 11종 드래그 배치·이동·90도 회전·삭제·파란 배치 미리보기
+- 전체 화면 꾸미기: 가구 11종 드래그 배치·이동·두 방향 전환·삭제·파란 배치 미리보기
 - 문은 벽에만 배치, 액자는 책상·쪽지는 냉장고에 부착, 러그는 가구 아래 배치
 - 좋아요, 콘셉트 좋아요, 코멘트 버튼: 준비 중 안내만 표시
 - 새로고침 시 세션 유지, 로그아웃, 세션 없는 집 접근 차단
 
 회원 정보는 PostgreSQL에 저장합니다. 비밀번호는 BCrypt 해시, 이메일은 AES-256-GCM 암호문과 중복 확인용 HMAC으로 보호합니다. [DB 설계·암호화·실행 안내](docs/AUTH-DATABASE.md)를 확인하세요.
 
-집/가구 배치는 아직 서버 메모리입니다. 같은 서버의 재로그인에서는 계정별 집을 재사용하지만 서버 재시작 시 배치는 초기화됩니다. 세션은 2시간 비활동 또는 서버 재시작 시 만료됩니다. 집 DB 저장, 초대, 공동 편집, 순위 집계, 댓글 저장은 후속 단계입니다.
+집/가구 배치도 PostgreSQL에 자동 저장합니다. 다시 로그인하거나 앱·DB Pod를 재시작해도 같은 집을 불러옵니다. 회전은 boolean 두 방향입니다. [집 DB 설계](docs/HOUSE-DATABASE.md)를 확인하세요. 세션은 2시간 비활동 또는 서버 재시작 시 만료됩니다. 초대, 공동 편집, 순위 집계, 댓글 저장은 후속 단계입니다.
 
-꾸미기 사용 방법, 배치 규칙, 메모리 저장, S3 교체 구조는 **[꾸미기 개발 문서](docs/ROOM-EDITOR.md)**에서 확인하세요. 가구 이미지는 **[단일 PNG atlas](assets/furniture-atlas.png)**입니다.
+꾸미기 사용 방법, 배치 규칙, DB 저장, S3 교체 구조는 **[꾸미기 개발 문서](docs/ROOM-EDITOR.md)**에서 확인하세요. 가구 이미지는 **[단일 PNG atlas](assets/furniture-atlas.png)**입니다.
 
 ## 기술
 
@@ -60,7 +60,7 @@ macOS/Linux: 동일한 환경변수를 설정하고 `./mvnw spring-boot:run`. �
 | `src/main/resources/static/room.js` | 가구 없는 8×8 SVG 렌더링 |
 | `src/main/resources/static/editor.js`, `furniture-scene.js` | 전체 화면 편집기와 PNG 가구 렌더링 |
 | `src/main/java/com/naranjip/application/` | 가구 카탈로그·배치 규칙·저장소 인터페이스 |
-| `src/main/java/com/naranjip/infrastructure/` | 로컬 이미지 접근·메모리 집 저장소 |
+| `src/main/java/com/naranjip/infrastructure/` | 로컬 이미지 접근·PostgreSQL 회원/집 저장소 |
 | `assets/furniture-atlas.png` | 생성한 가구 11종 단일 이미지 파일 |
 | `src/main/resources/static/styles.css` | 반응형 화면 스타일 |
 | `src/test/java/com/naranjip/` | 실제 인증·암호화 저장·CSRF·집 접근·배치 테스트 |
