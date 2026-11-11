@@ -32,6 +32,9 @@ public class AccountService {
         if (!matches || found.isEmpty()) throw new AuthException(401, "아이디 또는 비밀번호가 올바르지 않아요.", Map.of());
         return found.get();
     }
+    /** 규칙을 검사한 뒤 저장용 해시를 만든다. */
+    public String hashPassword(String password) { validatePassword(password, true); return passwords.encode(password); }
+    public boolean matches(String password, String hash) { return passwords.matches(password, hash); }
     private void validatePassword(String password, boolean register) {
         if (password.indexOf('\0') >= 0 || password.getBytes(StandardCharsets.UTF_8).length > 72)
             throw new AuthException(400, "비밀번호를 확인해 주세요.", Map.of("password", "비밀번호는 UTF-8 기준 72바이트 이내로 입력해 주세요."));

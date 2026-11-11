@@ -44,4 +44,11 @@ class SampleDataTest {
   assertEquals("구름집",accounts.login("구름집","SampleDemo123!").loginId());
   assertNotNull(social.random(h1));
  }
+ @Test void restartResetsOnlySampleAccountPasswordsToConfiguredValue() {
+  jdbc.update("UPDATE accounts SET password_hash=? WHERE login_id=?",accounts.hashPassword("OldRandom123!"),"구름집");
+  assertThrows(AuthException.class,()->accounts.login("구름집","SampleDemo123!"));
+  seeder.run(null);
+  assertEquals("구름집",accounts.login("구름집","SampleDemo123!").loginId());
+  assertEquals(4,jdbc.queryForObject("SELECT COUNT(*) FROM accounts",Integer.class));
+ }
 }

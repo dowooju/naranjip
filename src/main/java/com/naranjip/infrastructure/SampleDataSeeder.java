@@ -17,6 +17,7 @@ import java.util.*;
  * 나란집 샘플 집 4채(H1~H4)와 주인 계정(S1~S4)을 한 번만 만든다.
  * 이미 만들어져 있으면 아무것도 하지 않으므로 앱을 재시작해도 중복되지 않는다.
  * 하트·방명록·콘셉트·쪽지까지 하나의 트랜잭션으로 넣고, 실패하면 전부 되돌린다.
+ * 이미 있을 때 app.sample-password가 지정돼 있으면 샘플 계정의 비밀번호만 그 값으로 맞춘다.
  */
 @Component
 @ConditionalOnProperty(name="app.sample-data", havingValue="true")
@@ -32,14 +33,15 @@ public class SampleDataSeeder implements ApplicationRunner {
     private final FurnitureService furniture;
     private final NoteRepository notes;
     private final SocialRepository social;
+    private final EmailCrypto emailCrypto;
     private final TransactionTemplate transaction;
     private final String password;
 
     public SampleDataSeeder(JdbcTemplate jdbc, AccountService accounts, CoupleService couples, FurnitureService furniture,
-                            NoteRepository notes, SocialRepository social, PlatformTransactionManager transactions,
+                            NoteRepository notes, SocialRepository social, EmailCrypto emailCrypto, PlatformTransactionManager transactions,
                             @Value("${app.sample-password:}") String password) {
         this.jdbc = jdbc; this.accounts = accounts; this.couples = couples; this.furniture = furniture;
-        this.notes = notes; this.social = social; this.transaction = new TransactionTemplate(transactions);
+        this.notes = notes; this.social = social; this.emailCrypto = emailCrypto; this.transaction = new TransactionTemplate(transactions);
         this.password = password;
     }
 
@@ -54,14 +56,14 @@ public class SampleDataSeeder implements ApplicationRunner {
 
     private void seed() {
         long existing = jdbc.queryForObject("SELECT COUNT(*) FROM accounts WHERE login_id IN (?,?,?,?)", Long.class, LOGIN_IDS.toArray());
-        if (existing == LOGIN_IDS.size()) return;
+        if (existing == LOGIN_IDS.size()) { resetPasswords(); return; }
         if (existing > 0) { log.warn("샘플 아이디 일부가 이미 사용 중이라 샘플 데이터를 건너뜁니다."); return; }
 
         // 비밀번호를 지정하지 않으면 아무도 모르는 무작위 값이 되어, 샘플 계정은 구경용으로만 쓰인다.
         String secret = password == null || password.isBlank() ? UUID.randomUUID().toString() : password;
         List<UUID> ids = new ArrayList<>();
         for (int n = 0; n < LOGIN_IDS.size(); n++) {
-            var account = accounts.register(LOGIN_IDS.get(n), "s" + (n + 1) + "@sample.naranjip.local", secret);
+            var account = accounts.register(LOGIN_IDS.get(n), email(n), secret);
             couples.createHouse(account.id().toString());
             ids.add(account.id());
         }
@@ -131,6 +133,22 @@ public class SampleDataSeeder implements ApplicationRunner {
             like(h3, s1, theme); like(h3, s2, theme); like(h3, s4, theme);
         }
         log.info("나란집 샘플 집 {}채를 만들었어요.", LOGIN_IDS.size());
+    }
+
+    private static String email(int index) { return "s" + (index + 1) + "@sample.naranjip.local"; }
+
+    /** 샘플 아이디와 샘플 이메일이 모두 맞는 계정만 바꾼다. 같은 이름의 일반 회원 계정은 건드리지 않는다. */
+    private void resetPasswords() {
+        if (password == null || password.isBlank()) return;
+        String hash = accounts.hashPassword(password);
+        int changed = 0;
+        for (int n = 0; n < LOGIN_IDS.size(); n++) {
+            var rows = jdbc.queryForList("SELECT id, password_hash FROM accounts WHERE login_id=? AND email_lookup_hash=?",
+                LOGIN_IDS.get(n), emailCrypto.lookup(email(n)));
+            if (rows.isEmpty() || accounts.matches(password, (String)rows.getFirst().get("password_hash"))) continue;
+            changed += jdbc.update("UPDATE accounts SET password_hash=? WHERE id=?", hash, rows.getFirst().get("id"));
+        }
+        if (changed > 0) log.info("샘플 계정 {}개의 비밀번호를 SAMPLE_PASSWORD로 바꿨어요.", changed);
     }
 
     /** 배치 규칙(경계·겹침·벽·부착)을 그대로 거쳐 놓고, 새 가구의 ID를 돌려준다. */
