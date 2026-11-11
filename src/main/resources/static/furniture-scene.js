@@ -37,6 +37,7 @@ export async function createScene(canvas, house, catalog, editing = false) {
     sprites.set(type.id, { sx: sx + left, sy: sy + top, sw: right - left + 1, sh: bottom - top + 1 });
   }
   const context = canvas.getContext('2d');
+  let remote=[];
   let state = house, selected = null, preview = null, zoom = 1, transform = { scale: 1, x: 0, y: 0 }, hits = [], disposed = false;
 
   function pieces(item) {
@@ -126,12 +127,20 @@ export async function createScene(canvas, house, catalog, editing = false) {
       drawItem(preview.item,preview.valid ? .7 : .35,true);
       for(const child of state.furniture.filter(child=>child.parentId===preview.item.id))drawItem(child,preview.valid?.7:.35,true);
     }
+    for(const item of remote) {
+      if(!state.furniture.some(f=>f.id===item.id))continue;
+      const saved=preview;preview={item,valid:true};
+      footprint(item,true);drawItem(item,.55,true);
+      for(const child of state.furniture.filter(f=>f.parentId===item.id))drawItem(child,.55,true);
+      preview=saved;
+    }
     canvas.dispatchEvent(new Event('scenechange'));
   }
   const observer = new ResizeObserver(draw); observer.observe(canvas);
   draw();
   return {
     types,
+    remote(items){remote=items;draw();},
     update(house) { state=house; draw(); },
     select(id) { selected=id; draw(); },
     preview(value) { preview=value; draw(); },

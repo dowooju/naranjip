@@ -1,10 +1,10 @@
 import {apiFetch} from './api-client.js';
 const escape=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-export function createNotes(root,houseId,{editing=false,onSaved=async()=>{},onBusy=()=>{}}={}) {
- let previews=[],disposed=false,saving=false,dialog=null;
+export function createNotes(root,houseId,{editing=false,onSaved=async()=>{},onBusy=()=>{},beforeOpen=async()=>{},beforeSave=async()=>{},onClose=()=>{},headers=()=>({})}={}) {
+ let previews=[],disposed=false,saving=false,dialog=null,opening=false,refreshId=0;
  const abort=new AbortController(),signal=abort.signal;
  async function request(path,options={}) {
-  const response=await apiFetch('/api/houses/'+houseId+'/notes'+path,{cache:'no-store',...options});
+  const response=await apiFetch('/api/houses/'+houseId+'/notes'+path,{cache:'no-store',...options,headers:{...options.headers,...headers()}});
   if(!response.ok) {
    let message=response.status===404?'이 쪽지는 공개되지 않았거나 삭제됐어요.':'쪽지를 불러오지 못했어요.';
    try {message=(await response.json()).message||message;}catch{}
@@ -13,12 +13,15 @@ export function createNotes(root,houseId,{editing=false,onSaved=async()=>{},onBu
   return response.json();
  }
  async function refresh() {
-  previews=await request('');if(disposed)return;
+  const id=++refreshId,next=await request('');if(disposed||id!==refreshId)return;previews=next;
   root.innerHTML=`<h3>✉ ${editing?'쪽지 내용 편집':'냉장고의 쪽지'}</h3><p class="muted">${editing?'쪽지를 골라 내용을 적고 공개 여부를 정해 주세요.':'읽을 수 있는 쪽지만 보여요. 눌러서 펼쳐 보세요.'}</p><div class="note-list">${previews.map((n,i)=>`<button class="note-card" data-note-id="${n.id}"><strong>쪽지 ${i+1} · ${n.isPublic?'공개':'우리만'}</strong><span>${escape(n.preview)||'아직 적힌 내용이 없어요.'}</span></button>`).join('')||'<p class="muted">읽을 수 있는 쪽지가 없어요.</p>'}</div>`;
  }
- function close() {if(saving)return;dialog?.close();dialog?.remove();dialog=null;}
+ function close() {if(saving)return;dialog?.close();dialog?.remove();dialog=null;onClose();}
  async function open(id) {
-  if(disposed||saving||dialog)return;
+  if(disposed||saving||dialog||opening)return;
+  opening=true;
+  try{await beforeOpen(id);}catch(error){window.alert(error.message);return;}finally{opening=false;}
+  if(disposed){onClose();return;}
   const box=document.createElement('dialog');dialog=box;box.className='note-dialog';box.setAttribute('aria-label',editing?'쪽지 편집':'쪽지 읽기');
   box.innerHTML='<p>쪽지를 불러오는 중이에요…</p><button class="button secondary" data-close>닫기</button>';
   document.body.append(box);box.showModal();let note=null,dirty=false;
@@ -47,6 +50,7 @@ export function createNotes(root,houseId,{editing=false,onSaved=async()=>{},onBu
    if(event.target.id!=='note-form')return;event.preventDefault();if(saving||!note)return;
    saving=true;onBusy(true);box.querySelectorAll('button,input,textarea').forEach(el=>el.disabled=true);
    try {
+    await beforeSave(id);
     note=await request('/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({body:box.querySelector('textarea').value,isPublic:box.querySelector('#note-public').checked,revision:note.revision})});
     dirty=false;await onSaved();await refresh();saving=false;close();
    } catch(error){showError(error);}
