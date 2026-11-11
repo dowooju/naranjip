@@ -48,11 +48,16 @@ public class JdbcHouseRepository implements HouseRepository {
         int changed=jdbc.update("UPDATE houses SET revision=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND revision=?",
             house.revision,key,house.revision-1);
         if(changed!=1)throw new PlacementException("다른 창에서 집이 바뀌었어요. 최신 배치를 다시 불러옵니다.");
-        // At most 150 objects. Replace one layout atomically; a failure rolls back the entire transaction.
-        jdbc.update("DELETE FROM placed_furniture WHERE house_id=?",key);
+        // Retain furniture identities so attached content survives moves and rotations.
+        var retained=house.furniture.stream().map(item->UUID.fromString(item.id())).collect(java.util.stream.Collectors.toSet());
+        for(UUID old:jdbc.queryForList("SELECT id FROM placed_furniture WHERE house_id=?",UUID.class,key)) {
+            if(!retained.contains(old))jdbc.update("DELETE FROM placed_furniture WHERE id=? AND house_id=?",old,key);
+        }
         var ordered=house.furniture.stream().sorted(Comparator.comparing(item -> item.parentId()!=null)).toList();
         for(var item:ordered) {
-            jdbc.update("INSERT INTO placed_furniture(id,house_id,type_id,x,y,rotation,wall,parent_id,slot,sort_order) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            int updated=jdbc.update("UPDATE placed_furniture SET x=?,y=?,rotation=?,wall=?,parent_id=?,slot=?,sort_order=? WHERE id=? AND house_id=?",
+                item.x(),item.y(),item.rotation(),item.wall(),item.parentId()==null?null:UUID.fromString(item.parentId()),item.slot(),house.furniture.indexOf(item),UUID.fromString(item.id()),key);
+            if(updated==0)jdbc.update("INSERT INTO placed_furniture(id,house_id,type_id,x,y,rotation,wall,parent_id,slot,sort_order) VALUES (?,?,?,?,?,?,?,?,?,?)",
                 UUID.fromString(item.id()),key,item.typeId(),item.x(),item.y(),item.rotation(),item.wall(),
                 item.parentId()==null?null:UUID.fromString(item.parentId()),item.slot(),house.furniture.indexOf(item));
         }

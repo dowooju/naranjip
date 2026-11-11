@@ -1,0 +1,5 @@
+.live-status{font-size:12px;color:#276268;padding:5px 10px;border:1px dashed #65a9b0;background:#e8fbfa;max-width:320px}
+.live-status[data-online="false"]{background:#fff4d8;color:#815d24}
+.remote-label{position:absolute;pointer-events:none;padding:3px 7px;border:1px solid #9b75c4;background:#f3e8ff;color:#66448a;border-radius:5px;font-size:12px;white-space:nowrap;z-index:4}
+.editor-room{position:relative}
+@media(max-width:760px){.editor-toolbar{flex-wrap:wrap}.live-status{font-size:10px;max-width:100%;order:4;flex-basis:100%}}

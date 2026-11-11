@@ -18,7 +18,7 @@
 
 회원 정보는 PostgreSQL에 저장합니다. 비밀번호는 BCrypt 해시, 이메일은 AES-256-GCM 암호문과 중복 확인용 HMAC으로 보호합니다. [DB 설계·암호화·실행 안내](docs/AUTH-DATABASE.md)를 확인하세요.
 
-집/가구 배치도 PostgreSQL에 자동 저장합니다. 다시 로그인하거나 앱·DB Pod를 재시작해도 같은 집을 불러옵니다. 회전은 boolean 두 방향입니다. [집 DB 설계](docs/HOUSE-DATABASE.md)와 [커플 초대 설계](docs/COUPLE-INVITES.md)를 확인하세요. 커플 두 사람 모두 각자 꾸밀 수 있으며, 최신 집 불러오기로 상대의 변경을 확인합니다. 실시간 공동 편집은 후속 단계입니다. 세션은 2시간 비활동 또는 서버 재시작 시 만료됩니다.
+집/가구 배치도 PostgreSQL에 자동 저장합니다. 다시 로그인하거나 앱·DB Pod를 재시작해도 같은 집을 불러옵니다. 회전은 boolean 두 방향입니다. [집 DB 설계](docs/HOUSE-DATABASE.md)와 [커플 초대 설계](docs/COUPLE-INVITES.md)를 확인하세요. 커플 두 사람이 수정하기에 들어가면 가구 변경과 드래그 위치를 실시간으로 공유합니다. 같은 가구는 먼저 선택한 사람이 편집합니다. [실시간 공동 편집](docs/REALTIME-EDITING.md)을 참고하세요. 세션은 2시간 비활동 또는 서버 재시작 시 만료됩니다.
 
 **sudo1234 관리자 지정과 매주 콘셉트 등록 방법:** [좋아요·코멘트·관리자 안내](docs/SOCIAL-AND-ADMIN.md). 계정 가입 후 scripts/set-admin.ps1을 실행하며, 기본 관리자 계정/비밀번호는 만들지 않습니다.
 
@@ -72,3 +72,5 @@ macOS/Linux: 동일한 환경변수를 설정하고 `./mvnw spring-boot:run`. �
 | `.github/workflows/ci-cd.yml` | 테스트 → GHCR 이미지 → 선택형 로컬 CD |
 
 처음 하는 CI/CD는 **[단계별 안내](docs/CI-CD.md)**를 따라가세요. 실제 확인 기록은 [검증 기록](docs/VERIFICATION.md)에 남깁니다.
+
+냉장고 쪽지에 200자 이내 내용을 적고 방문객 공개 여부를 정할 수 있습니다. 기본은 집 멤버만 읽는 비공개입니다. [쪽지 사용·DB 설계](docs/NOTES.md)를 참고하세요.
