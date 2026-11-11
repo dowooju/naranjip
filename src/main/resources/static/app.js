@@ -1,3 +1,4 @@
+import { createNotes } from './notes.js';
 import { rankingMarkup, socialMarkup, mountSocial, adminMarkup, mountAdmin } from './social.js';
 import { coupleMarkup, mountCouple } from './couple.js';
 import { roomSvg } from './room.js';
@@ -15,6 +16,7 @@ let renderVersion = 0;
 let toastTimer;
 let currentEditor = null;
 let currentScene = null;
+let currentNotes = null;
 const escape = value => String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 
 async function api(path, body, method='POST') {
@@ -67,7 +69,7 @@ function houseScreen(house) {
   const owner=me.authenticated&&me.user.houseId===house.id;
   return `<section class="house-top"><div><a class="back-link" href="#home">← 마을로 돌아가기</a><h1>우리집에 오신 걸 환영해요.</h1><p>${escape(house.ownerName)}님의 작은 공간</p></div>${owner ? '<a class="button primary" href="#edit">수정하기 ↗</a>' : '<span class="pill">이웃집 구경 중 ♡</span>'}</section>
     <div class="house-layout"><section class="panel house-stage"><div class="room-heading"><span class="pill"><span class="status-dot"></span> 우리의 첫 번째 집</span><span class="room-number">MY HOME</span></div><div class="large-room"></div><div class="stage-bottom"><span>우리의 취향이 하나씩 쌓이는 집.</span><div class="zoom-controls"><button data-zoom="-" aria-label="집 축소">−</button><span id="zoom-label">${Math.round(zoom*100)}%</span><button data-zoom="+" aria-label="집 확대">+</button></div></div></section>
-    <aside class="panel house-sidebar"><p class="eyebrow">OUR LITTLE PLACE</p><h2>작은 집, 큰 마음.</h2>${owner?'<a class="button secondary full" href="#couple">♡ 커플 프로필</a>':''}<button class="button secondary full" data-random>다른 집 구경하기 ↗</button><button class="button secondary full" data-house-refresh>최신 집 불러오기 ↻</button><p class="muted">좋아하는 마음도, 짧은 안부도.<br>이곳에 차곡차곡 남겨볼까요?</p>${socialMarkup()}<div class="aside-note"><span>⌂</span><p>좋아하는 것 하나, 추억 하나.<br>조금씩 우리다운 공간으로.</p></div></aside></div>`;
+    <aside class="panel house-sidebar"><p class="eyebrow">OUR LITTLE PLACE</p><h2>작은 집, 큰 마음.</h2>${owner?'<a class="button secondary full" href="#couple">♡ 커플 프로필</a>':''}<button class="button secondary full" data-random>다른 집 구경하기 ↗</button><button class="button secondary full" data-house-refresh>최신 집 불러오기 ↻</button><p class="muted">좋아하는 마음도, 짧은 안부도.<br>이곳에 차곡차곡 남겨볼까요?</p><section class="house-notes"></section>${socialMarkup()}<div class="aside-note"><span>⌂</span><p>좋아하는 것 하나, 추억 하나.<br>조금씩 우리다운 공간으로.</p></div></aside></div>`;
 }
 async function render() {
   if (currentEditor?.pending) {
@@ -77,6 +79,7 @@ async function render() {
   }
   currentEditor?.destroy(); currentEditor = null;
   currentScene?.destroy(); currentScene = null;
+  currentNotes?.destroy(); currentNotes = null;
   const version = ++renderVersion;
   const route = location.hash || '#home';
   try { me = await api('/me'); } catch(error) { toast(error.message); return; }
@@ -121,6 +124,14 @@ async function render() {
         if (version !== renderVersion) { scene.destroy(); return; }
         currentScene = scene;
         currentScene.zoom(zoom);
+        currentNotes=createNotes(app.querySelector('.house-notes'),house.id);
+        const notes=currentNotes;
+        await notes.refresh();
+        if(version!==renderVersion)return;
+        target.querySelector('canvas').addEventListener('click',event=>{
+          const item=scene.hit(scene.point(event),item=>item.typeId==='note');
+          if(item&&notes.canRead(item.id))notes.open(item.id);
+        });
         await mountSocial(app,house.id,me,api,()=>{
           sessionStorage.setItem('after-login','#visit/'+house.id);location.hash='#home';toast('로그인 후 같은 집으로 돌아와요.');
         }).catch(error=>{if(version===renderVersion)app.querySelector('#social-panel').textContent=error.message;});
