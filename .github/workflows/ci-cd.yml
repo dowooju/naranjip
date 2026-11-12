@@ -1,4 +1,4 @@
-name: Test, publish and deploy
+name: Test, publish and compose smoke
 on:
   push:
     branches: [main]
@@ -61,16 +61,40 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  deploy:
-    # Enable only after registering a trusted, local Windows runner with kubectl access.
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.ENABLE_LOCAL_CD == 'true'
-    needs: publish
-    runs-on: [self-hosted, Windows, X64, naranjip-local]
-    environment: local-demo
+  compose-smoke:
+    # "Docker만 있는 깨끗한 컴퓨터에서 README대로 실행된다"를 매번 확인한다. .env 없이 기본값으로 실행.
+    needs: test
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Deploy the tested commit to Rancher Desktop
-        shell: powershell
-        env:
-          DEPLOY_IMAGE: ${{ needs.publish.outputs.image }}
-        run: ./scripts/deploy.ps1 -Image $env:DEPLOY_IMAGE
+      - name: docker compose up -d --build
+        run: docker compose up -d --build
+      - name: Wait until the app is ready
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:8080/actuator/health/readiness | grep -q '"UP"'; then echo "ready after $((i*5))s"; exit 0; fi
+            sleep 5
+          done
+          echo "app did not become ready"; exit 1
+      - name: Home page and sample houses
+        run: |
+          curl -fsS http://localhost:8080/ | grep -q '나란집'
+          curl -fsS http://localhost:8080/api/assets/furniture-atlas.png -o /dev/null
+          curl -fsS http://localhost:8080/api/rankings | tee rankings.json
+          jq -e '(.houses | length) == 4 and .houses[0].house.residents == "햇살방"' rankings.json
+          curl -fsS 'http://localhost:8080/api/rankings?type=theme' | jq -e '.theme.title == "비 오는 날의 집"'
+      - name: Data survives a restart without duplicate samples
+        run: |
+          docker compose down
+          docker compose up -d
+          for i in $(seq 1 60); do
+            curl -fsS http://localhost:8080/actuator/health/readiness | grep -q '"UP"' && break
+            sleep 5
+          done
+          curl -fsS http://localhost:8080/api/rankings | jq -e '(.houses | length) == 4'
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs
+      - name: Clean up
+        if: always()
+        run: docker compose down -v

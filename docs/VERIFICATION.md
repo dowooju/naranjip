@@ -1,5 +1,7 @@
 # 첫 버전 검증 기록
 
+> **k8s 시절 기록**: 아래는 Rancher Desktop Kubernetes로 실행하던 때의 검증 기록입니다. 지금은 Docker Compose로 실행합니다. Pod·PVC·port-forward 같은 표현은 당시 환경을 뜻합니다.
+
 ## 꾸미기 확장 (2026-11-09)
 
 - JUnit 10개 + Node 배치 미리보기 테스트 3개 통과.

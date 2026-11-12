@@ -1,0 +1,51 @@
+# 나란집 실행: docker compose up -d --build  →  http://localhost:8080
+# 로컬과 EC2 모두 이 파일 하나로 실행합니다.
+#
+# ${이름:-기본값}의 기본값은 "로컬 시연 전용" 고정 값입니다. .env 없이도 바로 실행됩니다.
+# 공개 서버(EC2)에서는 반드시 .env에 새 값을 넣으세요(.env.example 참고).
+# 고정 키로 암호화한 이메일은 이 저장소를 본 누구나 풀 수 있습니다.
+
+name: naranjip
+
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: naranjip
+      POSTGRES_USER: naranjip
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-naranjip-local-demo-only}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U naranjip -d naranjip"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    # DB 포트는 호스트에 열지 않습니다. 앱만 컨테이너 네트워크로 접속합니다.
+
+  app:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/naranjip
+      DB_USERNAME: naranjip
+      DB_PASSWORD: ${DB_PASSWORD:-naranjip-local-demo-only}
+      # Base64로 인코딩한 32바이트 키. 두 키는 서로 달라야 합니다.
+      EMAIL_ENCRYPTION_KEY: ${EMAIL_ENCRYPTION_KEY:-hCx2XiSlfprFoXNcjeIBrr7uMjQVgdBA5fEwnHOmBfs=}
+      EMAIL_LOOKUP_KEY: ${EMAIL_LOOKUP_KEY:-yHrUiLWDj0LQ4j+1VanYd7k+8SRtxycLN0hs0w4v4Po=}
+      SAMPLE_DATA: ${SAMPLE_DATA:-true}
+      # 비워 두면 샘플 계정은 구경 전용(무작위 비밀번호)입니다.
+      SAMPLE_PASSWORD: ${SAMPLE_PASSWORD:-}
+      ASSET_STORAGE: local
+      ASSET_ROOT: /app/assets
+    ports:
+      - "8080:8080"
+    # Dockerfile의 -XX:MaxRAMPercentage=75가 이 제한을 기준으로 힙 크기를 정합니다.
+    mem_limit: 768m
+    restart: unless-stopped
+
+volumes:
+  pgdata:
