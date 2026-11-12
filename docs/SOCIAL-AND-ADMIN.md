@@ -5,14 +5,13 @@
 ## sudo1234 관리자 준비
 
 1. 사이트에서 sudo1234로 회원가입합니다. 비밀번호는 가입 화면에서 직접 정하세요.
-2. Rancher Desktop을 켜고 프로젝트 폴더에서 PowerShell을 실행합니다.
+2. 앱이 실행 중인 상태에서 프로젝트 폴더의 터미널(Windows·macOS·Linux 공통)에서 실행합니다.
 
-~~~powershell
-Set-Location -LiteralPath 'C:\Users\LG PC\Desktop\github\naranjip'
-.\scripts\set-admin.ps1 -LoginId sudo1234
+~~~bash
+docker compose exec postgres psql -U naranjip -d naranjip -c "UPDATE accounts SET is_admin=TRUE WHERE login_id='sudo1234';"
 ~~~
 
-이미 있는 계정에만 권한을 줍니다. 계정을 생성하거나 비밀번호를 바꾸지 않습니다. PC의 Kubernetes 운영 권한이 있어야 실행할 수 있습니다. 가입 시 누구나 관리자 권한을 요청할 수 있는 웹 API는 없습니다.
+`UPDATE 1`이 나오면 성공입니다. `UPDATE 0`이면 그 아이디로 가입한 계정이 없는 것입니다. 아이디는 소문자로 저장되므로 소문자로 적습니다. 이미 있는 계정에만 권한을 줍니다. 계정을 생성하거나 비밀번호를 바꾸지 않습니다. 서버에서 Docker를 실행할 권한이 있어야 실행할 수 있습니다. 가입 시 누구나 관리자 권한을 요청할 수 있는 웹 API는 없습니다.
 
 ## 매주 콘셉트 등록
 
@@ -26,8 +25,8 @@ Set-Location -LiteralPath 'C:\Users\LG PC\Desktop\github\naranjip'
 
 권한 회수:
 
-~~~powershell
-.\scripts\set-admin.ps1 -LoginId sudo1234 -Revoke
+~~~bash
+docker compose exec postgres psql -U naranjip -d naranjip -c "UPDATE accounts SET is_admin=FALSE WHERE login_id='sudo1234';"
 ~~~
 
 권한은 요청마다 DB에서 확인하므로 이미 로그인한 계정도 회수 즉시 관리 API를 사용할 수 없습니다.

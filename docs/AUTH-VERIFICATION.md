@@ -1,5 +1,7 @@
 # 회원 인증 검증 기록
 
+> **k8s 시절 기록**: 아래는 Rancher Desktop Kubernetes로 실행하던 때의 검증 기록입니다. 지금은 Docker Compose로 실행합니다. Pod·PVC·port-forward 같은 표현은 당시 환경을 뜻합니다.
+
 - 브랜치: feature/postgres-auth
 - 서버 테스트: 10개 통과 (회원가입/로그인/중복/빈 입력/CSRF/암호화 저장/가구 소유권 및 배치)
 - Node 테스트: 5개 통과 (입력 검증 2개, 기존 배치 3개)

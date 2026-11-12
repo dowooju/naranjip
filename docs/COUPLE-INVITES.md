@@ -36,4 +36,4 @@ GET /api/couple, POST /api/houses, POST·DELETE /api/houses/{id}/invite, POST /a
 CoupleFlowTest에서 정상 연결·집 없는 수락·삭제 동의·재로그인·두 사람 편집·제3자 차단·코드 만료/취소/재발급·동시 수락·DB 오류 시 삭제 롤백을 검사합니다.
 실제 PostgreSQL은 별도 검증 DB에서 V2 기존 집 → V3 마이그레이션, 브라우저 2계정 연결, 앱 재시작 후 복원을 확인합니다.
 
-V3는 기존 코드가 사용하던 owner_id 컬럼을 제거하므로 배포 전략은 Recreate입니다. 구버전 Pod가 종료된 뒤 신버전이 마이그레이션합니다. 배포 중 잠깐 접속이 끊기고 재로그인이 필요합니다. V2 이미지로 단순 롤백할 수 없으며 DB 스키마와 함께 복구해야 합니다.
+V3는 기존 코드가 사용하던 owner_id 컬럼을 제거하므로 구버전 앱이 종료된 뒤 신버전이 마이그레이션해야 합니다(당시 Kubernetes Recreate 전략, 현재는 `docker compose up -d --build`가 앱 컨테이너를 교체). 배포 중 잠깐 접속이 끊기고 재로그인이 필요합니다. V2 이미지로 단순 롤백할 수 없으며 DB 스키마와 함께 복구해야 합니다.
