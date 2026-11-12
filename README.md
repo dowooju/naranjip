@@ -84,7 +84,7 @@ DB 볼륨까지 지워 처음 상태로 돌아갑니다. 다음 실행 때 샘�
 | 증상 | 확인할 것 |
 | --- | --- |
 | `Cannot connect to the Docker daemon` / `docker_engine` 오류 | Docker Desktop이 켜져 있는지 확인 |
-| `port is already allocated` (8080) | 8080을 쓰는 다른 프로그램을 끄거나, `docker-compose.yml`의 `"8080:8080"`을 `"8081:8080"`으로 바꾸고 <http://localhost:8081> 접속 |
+| `port is already allocated` (8080) | 8080을 쓰는 다른 프로그램을 끄거나, `docker-compose.yml` nginx의 `"8080:80"`을 `"8081:80"`으로 바꾸고 <http://localhost:8081> 접속 |
 | 접속이 안 됨 | `docker compose logs app`에서 오류 확인. 첫 실행은 앱 시작까지 30초 정도 걸릴 수 있습니다 |
 | `.env`로 비밀번호를 바꾼 뒤 DB 연결 실패 | PostgreSQL은 처음 만들 때만 비밀번호를 정합니다. `docker compose down -v` 후 다시 실행 |
 
@@ -100,7 +100,7 @@ cp .env.example .env
 
 `.env` 안의 안내대로 `DB_PASSWORD`, `EMAIL_ENCRYPTION_KEY`, `EMAIL_LOOKUP_KEY`를 채웁니다. 키는 `openssl rand -base64 32`로 하나씩 만듭니다(두 키는 서로 달라야 합니다). `.env`는 `.gitignore`에 있어 Git에 올라가지 않습니다. 키를 바꾸면 기존 이메일을 풀 수 없으므로, 첫 실행 뒤에는 바꾸지 마세요.
 
-같은 Compose 파일을 그대로 씁니다. 앱은 접속한 주소를 기준으로 WebSocket 출처를 확인하므로, `http://서버-IP:8080`으로 접속해도 실시간 편집이 동작합니다. 별도 설정은 필요 없습니다.
+같은 Compose 파일을 그대로 씁니다. nginx가 접속 주소(Host)를 그대로 앱에 넘기고, 앱은 그 주소를 기준으로 WebSocket 출처를 확인합니다. 그래서 `http://서버-IP:8080`으로 접속해도 실시간 편집이 동작합니다. 별도 설정은 필요 없습니다.
 
 ## 관리자 지정과 이번 주 콘셉트
 
@@ -115,13 +115,19 @@ docker compose exec postgres psql -U naranjip -d naranjip -c "UPDATE accounts SE
 ## 구성
 
 ```text
-브라우저 ──HTTP·WebSocket──▶ app (Spring Boot, 호스트 8080 포트)
-                               │ 컨테이너 내부 네트워크
-                               ▼
-                             postgres (PostgreSQL 17, named volume pgdata, 외부 포트 없음)
+                                  ┌─▶ app #1 (Spring Boot) ─┐
+브라우저 ──HTTP·WebSocket──▶ nginx ┤                         ├─▶ postgres (회원·집·가구, 볼륨 pgdata)
+          (호스트 8080 포트)       └─▶ app #2 (Spring Boot) ─┤
+                                                             └─▶ redis (로그인 세션, 실시간 편집 잠금·접속자·메시지)
 ```
 
-- `docker-compose.yml`: 위 두 컨테이너 정의. app은 postgres의 healthcheck가 통과한 뒤 시작하고, 꺼지면 자동으로 다시 켜집니다(`restart: unless-stopped`).
+외부에 열린 포트는 nginx의 8080 하나뿐입니다. 나머지는 컨테이너 내부 네트워크로만 연결됩니다.
+
+- `docker-compose.yml`: 위 다섯 컨테이너 정의. app은 postgres·redis의 healthcheck가 통과한 뒤 시작하고, 꺼지면 자동으로 다시 켜집니다(`restart: unless-stopped`).
+- `nginx.conf`: 요청을 app 두 개에 번갈아 보내고(라운드 로빈), WebSocket 연결도 전달합니다. 응답의 `X-Upstream` 헤더로 어느 app이 처리했는지 볼 수 있습니다.
+- app이 둘이어도 로그인 세션은 Redis(Spring Session)에 있어서, 어느 app이 요청을 받아도 로그인이 유지됩니다.
+- 커플 두 사람이 서로 다른 app에 연결돼도 같이 편집할 수 있습니다. 가구 잠금·접속자 목록은 Redis에 있고, 변경 알림은 Redis Pub/Sub으로 모든 app에 전달됩니다. 자세한 내용은 [실시간 공동 편집](docs/REALTIME-EDITING.md)에 있습니다.
+- app 한 개가 죽어도 nginx가 나머지 app으로 보내고, Docker가 죽은 app을 다시 켭니다. 연결이 끊긴 사람은 브라우저가 자동으로 다시 연결합니다.
 - `Dockerfile`: Maven으로 테스트·빌드한 뒤 Java 21 JRE 이미지에 jar와 가구 이미지(`assets/`)를 넣습니다.
 - DB 테이블은 앱이 켜질 때 Flyway(`src/main/resources/db/migration`)가 만듭니다.
 - 가구 이미지는 저장소의 `assets/furniture-atlas.png`를 그대로 씁니다. S3·RDS 같은 AWS 관리형 서비스는 쓰지 않습니다.
@@ -131,9 +137,19 @@ docker compose exec postgres psql -U naranjip -d naranjip -c "UPDATE accounts SE
 처음에는 Rancher Desktop의 Kubernetes에 배포했지만 Docker Compose 하나로 바꿨습니다.
 
 - 기존 k8s 구성은 앱 1개, DB 1개, 노드 1개였습니다. 그래서 Kubernetes를 써도 가용성이 실제로 늘지 않았습니다.
-- 실시간 편집 잠금(`web/LiveEditing.java`)이 앱 메모리에 있습니다. 그래서 앱을 여러 개로 늘릴 수도 없습니다.
+- 당시에는 실시간 편집 잠금(`web/LiveEditing.java`)이 앱 메모리에 있었습니다. 그래서 앱을 여러 개로 늘릴 수도 없었습니다.
 - 반면 Windows, Rancher Desktop, PowerShell 스크립트에 묶여 있어서 다른 PC에서 재현하기 어려웠습니다.
 - 그래서 같은 노력을 "누구나 명령 한 줄로 실행"과 외부 접속(EC2)에 쓰기로 했습니다. 로컬과 EC2 모두 `docker compose up -d --build`로 실행합니다.
+
+### 앱 2개 + nginx + Redis로 확장
+
+그다음 단계로, 실시간 편집 상태를 Redis로 옮겨 앱을 실제로 여러 개 띄울 수 있게 했습니다.
+
+- **세션**: Spring Session이 로그인 정보를 Redis에 저장합니다. 앱이 재시작돼도 로그인이 유지됩니다.
+- **편집 잠금**: Redis 해시에 저장하고, Lua 스크립트로 "비어 있는지 확인 후 저장"을 한 번에 실행합니다. 두 app에서 동시에 같은 가구를 잡아도 한 명만 성공합니다.
+- **실시간 메시지**: 각 app은 자기에게 연결된 WebSocket만 들고 있습니다. 보낼 메시지는 Redis Pub/Sub에 올리고, 모든 app이 받아서 자기 쪽 사람에게 전달합니다.
+- **확인 방법**: CI가 매번 Compose로 전체를 띄웁니다. 그다음 `scripts/multi-instance-smoke.mjs`로 두 연결을 서로 다른 app에 붙여 세션·잠금·미리보기·저장·로그아웃을 확인합니다.
+- **남은 한계**: 서버(EC2)가 한 대라 서버 자체가 꺼지면 서비스도 멈춥니다. Redis와 PostgreSQL도 한 개씩입니다. app 개수는 `docker compose up -d --scale app=3`처럼 바꿀 수 있습니다.
 
 ## 기능
 
@@ -145,15 +161,15 @@ docker compose exec postgres psql -U naranjip -d naranjip -c "UPDATE accounts SE
 - 냉장고 쪽지 200자, 방문객 공개 여부 선택([쪽지](docs/NOTES.md))
 - 일반·콘셉트 하트, 방명록, 이웃집 방문, 관리자 콘셉트 등록([좋아요·코멘트·관리자](docs/SOCIAL-AND-ADMIN.md))
 
-세션은 2시간 비활동 또는 앱 재시작 시 만료됩니다. 저장된 집과 쪽지는 DB에 남습니다.
+세션은 2시간 비활동 시 만료됩니다. 세션은 Redis에 있어 앱을 재시작해도 유지되고, Redis 컨테이너를 다시 만들면 다시 로그인해야 합니다. 저장된 집과 쪽지는 DB에 남습니다.
 
 ## 기술
 
-Java 21 / Spring Boot 3.5 / Spring Security / JDBC / PostgreSQL 17 / Flyway / Maven Wrapper / HTML·CSS·JavaScript / Docker Compose / GitHub Actions
+Java 21 / Spring Boot 3.5 / Spring Security / Spring Session / JDBC / PostgreSQL 17 / Redis 7 / Flyway / Maven Wrapper / HTML·CSS·JavaScript / nginx / Docker Compose / GitHub Actions
 
 ## 개발자용
 
-테스트는 H2 메모리 DB와 테스트 전용 키를 써서 DB 없이 실행됩니다(Java 21 필요).
+테스트는 H2 메모리 DB, 테스트 전용 키, Redis 대신 같은 규칙의 메모리 저장소(`MemoryLiveStore`)를 써서 DB·Redis 없이 실행됩니다(Java 21 필요). 앱 두 개가 저장소를 공유하는 상황도 `LiveFlowTest`에서 흉내 내 검증합니다.
 
 ```bash
 ./mvnw -B verify
@@ -170,8 +186,9 @@ GitHub Actions는 main 푸시와 PR마다 테스트 → `docker compose up -d --
 | 위치 | 역할 |
 | --- | --- |
 | `docker-compose.yml`, `.env.example` | 실행 구성과 공개 서버용 비밀값 예시 |
+| `nginx.conf` | 앱 컨테이너 여러 개로 나눠 보내기, WebSocket 전달 |
 | `Dockerfile` | 테스트·빌드·실행 이미지 |
-| `src/main/java/com/naranjip/web/` | API 컨트롤러, 보안 설정, 실시간 편집(WebSocket) |
+| `src/main/java/com/naranjip/web/` | API 컨트롤러, 보안 설정, 실시간 편집(WebSocket, `LiveStore`·`RedisLiveStore`) |
 | `src/main/java/com/naranjip/application/` | 가구 카탈로그·배치 규칙·서비스 |
 | `src/main/java/com/naranjip/infrastructure/` | PostgreSQL 저장소, 이메일 암호화, 이미지 저장소, 샘플 데이터 |
 | `src/main/resources/db/migration/` | Flyway DB 스키마 |

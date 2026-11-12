@@ -2,6 +2,7 @@ package com.naranjip;
 import com.fasterxml.jackson.databind.*;
 import com.naranjip.application.*;
 import com.naranjip.web.LiveEditing;
+import com.naranjip.web.LiveStore;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -21,27 +22,30 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class LiveFlowTest {
  @Autowired MockMvc mvc;@Autowired ObjectMapper json;@Autowired LiveEditing live;
  @Autowired CoupleService couples;@Autowired FurnitureService furniture;@Autowired NoteService notes;
+ @Autowired HouseRepository houses;@Autowired LiveStore store;
  record User(String id,MockHttpSession session) {}
- record Peer(WebSocketSession socket,List<JsonNode> messages) {String id(){return socket.getId();}}
+ record Peer(LiveEditing server,WebSocketSession socket,List<JsonNode> messages) {String id(){return socket.getId();}}
  final List<Peer> peers=new ArrayList<>();
- @AfterEach void disconnect() {for(var p:peers)live.afterConnectionClosed(p.socket(),CloseStatus.NORMAL);}
+ @AfterEach void disconnect() {for(var p:peers)p.server().afterConnectionClosed(p.socket(),CloseStatus.NORMAL);}
  User user() throws Exception {
   String name="l"+UUID.randomUUID().toString().replace("-","").substring(0,12);
   var r=mvc.perform(post("/api/auth/register").with(csrf()).contentType("application/json").content(json.writeValueAsString(Map.of("loginId",name,"email",name+"@example.com","password","LiveTest123!")))).andExpect(status().isCreated()).andReturn();
   return new User(json.readTree(r.getResponse().getContentAsString()).at("/user/accountId").asText(),(MockHttpSession)r.getRequest().getSession(false));
  }
- Peer connect(User user,String house) throws Exception {
+ Peer connect(User user,String house) throws Exception {return connect(live,user,house);}
+ /** server: WebSocket을 받는 앱. 접속권은 항상 기본 앱(live)이 HTTP로 발급한 것을 쓴다. */
+ Peer connect(LiveEditing server,User user,String house) throws Exception {
   String ticket=live.ticket(house,user.id(),"테스터",user.session());
-  var attributes=new HashMap<String,Object>();assertTrue(live.consume(ticket,user.session(),attributes));
-  assertFalse(live.consume(ticket,user.session(),new HashMap<>()));
+  var attributes=new HashMap<String,Object>();assertTrue(server.consume(ticket,user.session(),attributes));
+  assertFalse(server.consume(ticket,user.session(),new HashMap<>()));
   var socket=mock(WebSocketSession.class);var open=new AtomicBoolean(true);
   when(socket.getId()).thenReturn(UUID.randomUUID().toString());when(socket.getAttributes()).thenReturn(attributes);when(socket.isOpen()).thenAnswer(i->open.get());
   doAnswer(i->{open.set(false);return null;}).when(socket).close(any(CloseStatus.class));
   List<JsonNode> messages=Collections.synchronizedList(new ArrayList<>());
   doAnswer(i->{messages.add(json.readTree(((TextMessage)i.getArgument(0)).getPayload()));return null;}).when(socket).sendMessage(any());
-  Peer peer=new Peer(socket,messages);peers.add(peer);live.afterConnectionEstablished(socket);return peer;
+  Peer peer=new Peer(server,socket,messages);peers.add(peer);server.afterConnectionEstablished(socket);return peer;
  }
- void send(Peer p,Map<String,Object> message) throws Exception {live.handleMessage(p.socket(),new TextMessage(json.writeValueAsString(message)));}
+ void send(Peer p,Map<String,Object> message) throws Exception {p.server().handleMessage(p.socket(),new TextMessage(json.writeValueAsString(message)));}
  void lock(Peer p,String id) throws Exception {send(p,Map.of("type","lock","id",id,"requestId",UUID.randomUUID().toString()));}
  long count(Peer p,String type){return p.messages().stream().filter(m->m.path("type").asText().equals(type)).count();}
  String add(String house,String type,String parent,int x) {return furniture.place(house,null,new FurnitureService.Placement(type,x,2,false,null,parent,furniture.read(house).revision())).furniture().getLast().id();}
@@ -86,5 +90,23 @@ class LiveFlowTest {
   send(one,Map.of("type","preview","id",chair,"x",4,"y",4,"rotation",true));
   assertEquals(1,count(two,"preview"));assertEquals(before,furniture.read(a.id()).revision());
   assertEquals(2,furniture.read(a.id()).furniture().getFirst().x());
+ }
+
+ /** nginx 뒤 앱 두 개를 흉내 낸다: 두 사람이 서로 다른 앱에 연결돼도 같은 공유 저장소로 잠금·미리보기·저장을 나눈다. */
+ @Test void twoServersShareLocksPreviewsAndSnapshots() throws Exception {
+  var other=new LiveEditing(json,furniture,houses,store,Optional.empty());
+  var a=user();var b=user();couples.createHouse(a.id());couples.accept(b.id(),couples.issue(a.id(),a.id()).code(),false,null);
+  String chair=add(a.id(),"chair",null,2);
+  var one=connect(live,a,a.id());var two=connect(other,b,a.id());
+  assertTrue(two.messages().stream().anyMatch(m->m.path("type").asText().equals("presence")&&m.path("people").size()==2));
+  lock(one,chair);lock(two,chair);
+  assertEquals(1,count(one,"locked"));assertEquals(1,count(two,"rejected"));
+  send(one,Map.of("type","preview","id",chair,"x",4,"y",4,"rotation",false));assertEquals(1,count(two,"preview"));
+  String url="/api/houses/"+a.id()+"/furniture/"+chair;
+  mvc.perform(put(url).session(b.session()).with(csrf()).header("X-Live-Client",two.id()).contentType("application/json").content("{\"typeId\":\"chair\",\"x\":5,\"y\":5,\"rotation\":false,\"revision\":0}")).andExpect(status().isConflict());
+  mvc.perform(put(url).session(a.session()).with(csrf()).header("X-Live-Client",one.id()).contentType("application/json").content("{\"typeId\":\"chair\",\"x\":4,\"y\":4,\"rotation\":false,\"revision\":0}")).andExpect(status().isOk());
+  assertEquals(1,count(one,"snapshot"));assertEquals(1,count(two,"snapshot"));
+  live.afterConnectionClosed(one.socket(),CloseStatus.NORMAL);
+  lock(two,chair);assertEquals(1,count(two,"locked"));
  }
 }

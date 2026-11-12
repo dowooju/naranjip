@@ -24,6 +24,7 @@ Flyway가 `V1__create_accounts.sql`을 최초 실행하고 이력을 기록합�
 - 이메일 검색: 무작위 nonce 때문에 암호문으로 중복 검색할 수 없으므로 별도의 **HMAC-SHA256** 값에 UNIQUE 제약을 둡니다. 단순 SHA256과 달리 검색용 비밀 키가 필요합니다.
 - 아이디: 공개 표시 식별자라 평문 저장합니다. 모든 필드를 암호화했다고 주장하지 않습니다.
 - DB 비밀번호, AES 키, HMAC 키: 환경변수로 주입합니다. `docker-compose.yml`에는 `.env` 없이 바로 실행되도록 **로컬 시연 전용 고정 키**가 기본값으로 들어 있습니다. 이 값은 공개 저장소에 있으므로 공개 서버에서는 반드시 `.env`에 각각 독립적인 32바이트 난수(`openssl rand -base64 32`)를 넣어야 합니다. `.env`는 Git에 올리지 않습니다. 운영 수준에서는 백업 접근 제한과 Secret Manager/KMS도 함께 고려해야 합니다.
+- 세션: Spring Session이 Redis에 저장합니다(쿠키 이름 `SESSION`). app 컨테이너가 여러 개여도 같은 로그인을 봅니다. Redis 포트는 외부에 열지 않습니다.
 - 브라우저: HttpOnly/SameSite=Lax 세션 쿠키, 로그인 시 새 세션, 변경 요청에 Spring Security CSRF 토큰. 비밀번호/키/이메일을 응답하거나 localStorage에 저장하지 않습니다.
 - 로컬 주소는 HTTP입니다. DB 저장 보호와 전송 암호화는 별개이므로 외부 서비스에서는 HTTPS와 `SESSION_COOKIE_SECURE=true`를 사용해야 합니다.
 

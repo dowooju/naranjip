@@ -69,13 +69,17 @@ jobs:
       - uses: actions/checkout@v4
       - name: docker compose up -d --build
         run: docker compose up -d --build
-      - name: Wait until the app is ready
+      - name: Wait until both app containers are ready
         run: |
+          # nginx가 붙인 X-Upstream 헤더로, 서로 다른 앱 컨테이너 2개가 모두 readiness UP을 응답할 때까지 기다린다.
           for i in $(seq 1 60); do
-            if curl -fsS http://localhost:8080/actuator/health/readiness | grep -q '"UP"'; then echo "ready after $((i*5))s"; exit 0; fi
+            ready=$(for j in 1 2 3 4 5 6; do
+              curl -fsS -D - -o /dev/null http://localhost:8080/actuator/health/readiness 2>/dev/null | tr -d '\r' | awk -F': ' 'tolower($1)=="x-upstream" && $2 !~ /,/ {print $2}'
+            done | sort -u | wc -l)
+            if [ "$ready" -ge 2 ]; then echo "both ready after $((i*5))s"; exit 0; fi
             sleep 5
           done
-          echo "app did not become ready"; exit 1
+          echo "app containers did not become ready"; docker compose ps; exit 1
       - name: Home page and sample houses
         run: |
           curl -fsS http://localhost:8080/ | grep -q '나란집'
@@ -83,6 +87,11 @@ jobs:
           curl -fsS http://localhost:8080/api/rankings | tee rankings.json
           jq -e '(.houses | length) == 4 and .houses[0].house.residents == "햇살방"' rankings.json
           curl -fsS 'http://localhost:8080/api/rankings?type=theme' | jq -e '.theme.title == "비 오는 날의 집"'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Two app containers share sessions and live editing through Redis
+        run: node scripts/multi-instance-smoke.mjs http://localhost:8080
       - name: Data survives a restart without duplicate samples
         run: |
           docker compose down
