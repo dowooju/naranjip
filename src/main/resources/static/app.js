@@ -158,8 +158,6 @@ app.addEventListener('click', async event => {
   }
   const tabButton = event.target.closest('[data-tab]');
   if (tabButton) { tab = tabButton.dataset.tab; render().then(() => app.querySelector(`[data-tab="${tab}"]`)?.focus()); }
-  const placeholder = event.target.closest('[data-placeholder]');
-  if (placeholder) toast(`${placeholder.dataset.placeholder} 기능은 준비 중이에요. 아직 저장되지 않아요.`);
   const zoomButton = event.target.closest('[data-zoom]');
   if (zoomButton) {
     zoom = Math.min(1.3, Math.max(.7, Math.round((zoom + (zoomButton.dataset.zoom === '+' ? .1 : -.1))*10)/10));
