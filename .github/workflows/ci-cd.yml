@@ -94,6 +94,7 @@ jobs:
           echo "app containers did not become ready"; docker compose ps; exit 1
       - name: Home page and sample houses
         run: |
+          trap 'echo "::error title=Smoke check failed::$BASH_COMMAND"' ERR
           curl -fsS http://localhost:8080/ | grep -q '나란집'
           curl -fsS http://localhost:8080/api/assets/furniture-atlas.png -o /dev/null
           curl -fsS http://localhost:8080/api/rankings | tee rankings.json
@@ -115,7 +116,14 @@ jobs:
           curl -fsS http://localhost:8080/api/rankings | jq -e '(.houses | length) == 4'
       - name: Logs on failure
         if: failure()
-        run: docker compose logs
+        run: |
+          docker compose logs > compose.log 2>&1 || true
+          cat compose.log
+          # 로그인 없이 볼 수 있도록 중요한 줄을 annotation으로 남긴다.
+          [ -f rankings.json ] && echo "::error title=rankings.json::$(head -c 3000 rankings.json)"
+          echo "::error title=Container status::$(docker compose ps -a --format '{{.Name}} {{.Status}}' | tr '\n' '|')"
+          echo "::error title=Warnings and errors in logs::$(grep -E 'WARN|ERROR|Exception|Caused by|emerg|FAIL' compose.log | head -60 | cut -c1-300 | tr '\n' '|' | sed 's/%/%25/g' | head -c 12000)"
+          true
       - name: Clean up
         if: always()
         run: docker compose down -v

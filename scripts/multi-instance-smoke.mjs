@@ -5,7 +5,13 @@
 const base = (process.argv[2] || 'http://localhost:8080').replace(/\/$/, '');
 let cookie = '';
 
-function fail(message) { console.error('FAIL: ' + message); process.exit(1); }
+function fail(message) {
+  console.error('FAIL: ' + message);
+  if (process.env.GITHUB_ACTIONS) console.log('::error title=Multi-instance smoke::' + message);
+  process.exit(1);
+}
+process.on('unhandledRejection', e => fail(String(e?.message || e)));
+process.on('uncaughtException', e => fail(String(e?.message || e)));
 function check(ok, message) { if (!ok) fail(message); console.log('ok - ' + message); }
 
 async function http(path, { method = 'GET', body, headers = {} } = {}) {
