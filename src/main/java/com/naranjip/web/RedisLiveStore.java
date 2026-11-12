@@ -67,8 +67,8 @@ public class RedisLiveStore implements LiveStore {
         listener.afterPropertiesSet();
     }
 
-    private static String leases(String house) { return "live:leases:" + house; }
-    private static String members(String house) { return "live:members:" + house; }
+    private static String leaseKey(String house) { return "live:leases:" + house; }
+    private static String memberKey(String house) { return "live:members:" + house; }
     private static long now() { return System.currentTimeMillis(); }
     private String write(Object value) {
         try { return json.writeValueAsString(value); } catch (JsonProcessingException e) { throw new IllegalStateException(e); }
@@ -88,36 +88,36 @@ public class RedisLiveStore implements LiveStore {
     }
 
     @Override public boolean acquire(Lease lease) {
-        Long ok = redis.execute(ACQUIRE, List.of(leases(lease.house())), lease.root(), lease.client(), write(lease), String.valueOf(now()));
+        Long ok = redis.execute(ACQUIRE, List.of(leaseKey(lease.house())), lease.root(), lease.client(), write(lease), String.valueOf(now()));
         return ok != null && ok == 1;
     }
     @Override public void release(Lease lease) {
-        redis.execute(RELEASE, List.of(leases(lease.house())), lease.root(), lease.client());
+        redis.execute(RELEASE, List.of(leaseKey(lease.house())), lease.root(), lease.client());
     }
     @Override public Lease lease(String house, String root) {
-        var l = read(redis.opsForHash().get(leases(house), root), Lease.class);
+        var l = read(redis.opsForHash().get(leaseKey(house), root), Lease.class);
         return l == null || l.expires() <= now() ? null : l;
     }
     @Override public List<Lease> leases(String house) {
         long now = now();
-        return redis.opsForHash().values(leases(house)).stream().map(v -> read(v, Lease.class))
+        return redis.opsForHash().values(leaseKey(house)).stream().map(v -> read(v, Lease.class))
             .filter(l -> l != null && l.expires() > now).toList();
     }
 
-    @Override public void join(Member m) { redis.opsForHash().put(members(m.house()), m.client(), write(m)); }
-    @Override public void leave(String house, String client) { redis.opsForHash().delete(members(house), client); }
+    @Override public void join(Member m) { redis.opsForHash().put(memberKey(m.house()), m.client(), write(m)); }
+    @Override public void leave(String house, String client) { redis.opsForHash().delete(memberKey(house), client); }
     @Override public Member member(String house, String client) {
-        var m = read(redis.opsForHash().get(members(house), client), Member.class);
+        var m = read(redis.opsForHash().get(memberKey(house), client), Member.class);
         return m == null || m.expires() <= now() ? null : m;
     }
     @Override public List<Member> members(String house) {
         long now = now();
-        return redis.opsForHash().values(members(house)).stream().map(v -> read(v, Member.class))
+        return redis.opsForHash().values(memberKey(house)).stream().map(v -> read(v, Member.class))
             .filter(m -> m != null && m.expires() > now).toList();
     }
     @Override public boolean purge(String house, long now) {
-        Long a = redis.execute(PURGE, List.of(leases(house)), String.valueOf(now));
-        Long b = redis.execute(PURGE, List.of(members(house)), String.valueOf(now));
+        Long a = redis.execute(PURGE, List.of(leaseKey(house)), String.valueOf(now));
+        Long b = redis.execute(PURGE, List.of(memberKey(house)), String.valueOf(now));
         return (a != null && a > 0) || (b != null && b > 0);
     }
 
