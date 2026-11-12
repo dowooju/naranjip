@@ -58,8 +58,6 @@ services:
       SAMPLE_DATA: ${SAMPLE_DATA:-true}
       # 비워 두면 샘플 계정은 구경 전용(무작위 비밀번호)입니다.
       SAMPLE_PASSWORD: ${SAMPLE_PASSWORD:-}
-      ASSET_STORAGE: local
-      ASSET_ROOT: /app/assets
       REDIS_HOST: redis
     # 앱 포트는 호스트에 열지 않고 nginx만 접속합니다.
     # Dockerfile의 -XX:MaxRAMPercentage=75가 이 제한을 기준으로 힙 크기를 정합니다.

@@ -36,7 +36,7 @@ cd naranjip
 docker compose up -d --build
 ```
 
-처음에는 이미지 다운로드, 빌드, 테스트 때문에 몇 분 걸립니다. 앱 이미지를 만들 때 Dockerfile 안에서 `mvn verify`로 테스트를 실행하므로, 테스트가 실패하면 앱도 실행되지 않습니다. 두 번째부터는 빨라집니다.
+처음에는 이미지 다운로드와 빌드 때문에 몇 분 걸리고, 두 번째부터는 빨라집니다. 테스트는 GitHub Actions(CI)가 커밋마다 따로 실행합니다.
 
 진행 상태 확인:
 
@@ -63,7 +63,7 @@ docker compose logs -f app
 - 순위 카드를 누르면 로그인 없이 집과 방명록을 구경할 수 있습니다.
 - 직접 꾸며 보려면 회원가입 후 **새 집 만들기**를 누릅니다. 다른 창(시크릿 창)에서 두 번째 계정을 만들고 초대 코드로 들어오면, 둘이 같은 집을 실시간으로 함께 꾸밀 수 있습니다.
 
-샘플 계정으로 로그인하는 방법은 [샘플 데이터 안내](docs/SAMPLE-DATA.md)를 참고하세요.
+샘플 계정으로 로그인하는 방법은 [기능 안내 · 샘플 집](docs/FEATURES.md#5-샘플-집)을 참고하세요.
 
 ### 6. 종료와 초기화
 
@@ -110,7 +110,7 @@ cp .env.example .env
 docker compose exec postgres psql -U naranjip -d naranjip -c "UPDATE accounts SET is_admin=TRUE WHERE login_id='sudo1234';"
 ```
 
-`UPDATE 1`이 나오면 성공, `UPDATE 0`이면 그 아이디로 가입한 계정이 없는 것입니다. 회수는 `TRUE`를 `FALSE`로 바꿔 실행합니다. 콘셉트 등록 방법은 [좋아요·코멘트·관리자 안내](docs/SOCIAL-AND-ADMIN.md)를 참고하세요.
+`UPDATE 1`이 나오면 성공, `UPDATE 0`이면 그 아이디로 가입한 계정이 없는 것입니다. 회수는 `TRUE`를 `FALSE`로 바꿔 실행합니다. 콘셉트 등록 방법은 [기능 안내](docs/FEATURES.md#관리자와-콘셉트-등록)를 참고하세요.
 
 ## 구성
 
@@ -128,9 +128,9 @@ docker compose exec postgres psql -U naranjip -d naranjip -c "UPDATE accounts SE
 - app이 둘이어도 로그인 세션은 Redis(Spring Session)에 있어서, 어느 app이 요청을 받아도 로그인이 유지됩니다.
 - 커플 두 사람이 서로 다른 app에 연결돼도 같이 편집할 수 있습니다. 가구 잠금·접속자 목록은 Redis에 있고, 변경 알림은 Redis Pub/Sub으로 모든 app에 전달됩니다. 자세한 내용은 [실시간 공동 편집](docs/REALTIME-EDITING.md)에 있습니다.
 - app 한 개가 죽어도 nginx가 나머지 app으로 보내고, Docker가 죽은 app을 다시 켭니다. 연결이 끊긴 사람은 브라우저가 자동으로 다시 연결합니다.
-- `Dockerfile`: Maven으로 테스트·빌드한 뒤 Java 21 JRE 이미지에 jar와 가구 이미지(`assets/`)를 넣습니다.
+- `Dockerfile`: Maven으로 jar를 만든 뒤 Java 21 JRE 이미지에 넣습니다. 화면과 가구 이미지도 jar 안에 들어 있습니다.
 - DB 테이블은 앱이 켜질 때 Flyway(`src/main/resources/db/migration`)가 만듭니다.
-- 가구 이미지는 저장소의 `assets/furniture-atlas.png`를 그대로 씁니다. S3·RDS 같은 AWS 관리형 서비스는 쓰지 않습니다.
+- 가구 이미지는 `src/main/resources/static/furniture-atlas.png` 한 장을 정적 파일로 제공합니다. S3·RDS 같은 AWS 관리형 서비스는 쓰지 않습니다.
 
 ### 왜 Kubernetes 대신 Docker Compose인가
 
@@ -154,12 +154,20 @@ docker compose exec postgres psql -U naranjip -d naranjip -c "UPDATE accounts SE
 ## 기능
 
 - 홈: 명예의 전당 / 이번 주 콘셉트 순위, 로그인·회원가입
-- 회원가입·로그인: 비밀번호는 BCrypt 해시, 이메일은 AES-256-GCM 암호문과 중복 확인용 HMAC으로 저장([DB 설계·암호화](docs/AUTH-DATABASE.md))
-- 8×8 집, 새 집 만들기 또는 7자리·24시간·1회용 초대 코드로 커플 집 합치기([커플 초대](docs/COUPLE-INVITES.md))
-- 꾸미기: 가구 11종 드래그 배치·이동·회전·삭제, 배치 규칙 검사([꾸미기](docs/ROOM-EDITOR.md), [집 DB](docs/HOUSE-DATABASE.md))
-- 커플 실시간 공동 편집(WebSocket), 같은 가구는 먼저 잡은 사람이 편집([실시간 공동 편집](docs/REALTIME-EDITING.md))
-- 냉장고 쪽지 200자, 방문객 공개 여부 선택([쪽지](docs/NOTES.md))
-- 일반·콘셉트 하트, 방명록, 이웃집 방문, 관리자 콘셉트 등록([좋아요·코멘트·관리자](docs/SOCIAL-AND-ADMIN.md))
+- 회원가입·로그인: 비밀번호는 BCrypt 해시, 이메일은 AES-256-GCM 암호문과 중복 확인용 HMAC으로 저장
+- 8×8 집, 새 집 만들기 또는 7자리·24시간·1회용 초대 코드로 커플 집 합치기
+- 꾸미기: 가구 11종 드래그 배치·이동·회전·삭제, 배치 규칙 검사
+- 커플 실시간 공동 편집(WebSocket), 같은 가구는 먼저 잡은 사람이 편집
+- 냉장고 쪽지 200자, 방문객 공개 여부 선택
+- 일반·콘셉트 하트, 방명록, 이웃집 방문, 관리자 콘셉트 등록
+
+| 문서 | 내용 |
+| --- | --- |
+| [기능 안내](docs/FEATURES.md) | 꾸미기 규칙, 커플 초대, 쪽지, 하트·방명록·관리자, 샘플 집 |
+| [실시간 공동 편집](docs/REALTIME-EDITING.md) | WebSocket, 앱 여러 개에서 Redis로 공유하는 방법 |
+| [DB와 보안](docs/DATABASE.md) | 테이블, 개인정보 암호화, 동시 수정 보호, API 목록 |
+| [CI 안내](docs/CI-CD.md) | GitHub Actions가 확인하는 것 |
+| [검증 기록](docs/VERIFICATION.md) | 자동화 이전에 손으로 확인한 기록 |
 
 세션은 2시간 비활동 시 만료됩니다. 세션은 Redis에 있어 앱을 재시작해도 유지되고, Redis 컨테이너를 다시 만들면 다시 로그인해야 합니다. 저장된 집과 쪽지는 DB에 남습니다.
 
@@ -181,21 +189,19 @@ node --test scripts/placement.test.mjs scripts/auth-validation.test.mjs
 
 Windows 명령 프롬프트·PowerShell에서는 `./mvnw` 대신 `.\mvnw.cmd`를 씁니다.
 
-GitHub Actions는 main 푸시와 PR마다 테스트 → `docker compose up -d --build` 후 실제 접속·샘플 데이터 확인(스모크)을 실행하고, main에서는 이미지를 GHCR에 올립니다. [CI 안내](docs/CI-CD.md)를 참고하세요.
+GitHub Actions는 main 푸시와 PR마다 테스트 → `docker compose up -d --build` 후 실제 접속·샘플 데이터·앱 2개 공유 확인(스모크)을 실행합니다. [CI 안내](docs/CI-CD.md)를 참고하세요.
 
 | 위치 | 역할 |
 | --- | --- |
 | `docker-compose.yml`, `.env.example` | 실행 구성과 공개 서버용 비밀값 예시 |
 | `nginx.conf` | 앱 컨테이너 여러 개로 나눠 보내기, WebSocket 전달 |
-| `Dockerfile` | 테스트·빌드·실행 이미지 |
+| `Dockerfile` | 빌드·실행 이미지 |
 | `src/main/java/com/naranjip/web/` | API 컨트롤러, 보안 설정, 실시간 편집(WebSocket, `LiveStore`·`RedisLiveStore`) |
 | `src/main/java/com/naranjip/application/` | 가구 카탈로그·배치 규칙·서비스 |
-| `src/main/java/com/naranjip/infrastructure/` | PostgreSQL 저장소, 이메일 암호화, 이미지 저장소, 샘플 데이터 |
+| `src/main/java/com/naranjip/infrastructure/` | PostgreSQL 저장소, 이메일 암호화, 샘플 데이터 |
 | `src/main/resources/db/migration/` | Flyway DB 스키마 |
-| `src/main/resources/static/` | 화면(HTML·CSS·JS) |
-| `assets/furniture-atlas.png` | 가구 11종 이미지 |
+| `src/main/resources/static/` | 화면(HTML·CSS·JS)과 가구 11종 이미지(`furniture-atlas.png`) |
 | `src/test/java/com/naranjip/` | 인증·암호화·CSRF·집 접근·배치·실시간 편집 테스트 |
-| `scripts/*.mjs` | 브라우저 스모크 테스트(테스트 계정을 만들므로 운영 DB에는 실행하지 않음) |
-| `.github/workflows/ci-cd.yml` | 테스트 → Compose 스모크 → GHCR 이미지 |
+| `scripts/` | 배치·입력 검사 테스트, 앱 2개 공유 스모크 테스트(테스트 계정을 만들므로 운영 서버에서는 실행하지 않음), 준비 대기(`wait-ready.sh`) |
+| `.github/workflows/ci-cd.yml` | 테스트 → Compose 스모크 |
 
-검증 기록은 [검증 기록](docs/VERIFICATION.md)에 있습니다.

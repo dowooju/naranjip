@@ -6,7 +6,6 @@
 코드 수정 → git push (main 또는 PR)
   → test: Java 21로 ./mvnw verify, Node 배치·입력 검증 테스트
   → compose-smoke: 깨끗한 Ubuntu에서 docker compose up -d --build 후 실제 접속, 앱 2개 공유 확인
-  → publish (main 푸시만): Docker 이미지를 GHCR에 저장
 ```
 
 **CI**는 코드가 올라올 때마다 자동으로 테스트하고 빌드하는 과정입니다. 설정 파일은 `.github/workflows/ci-cd.yml` 하나입니다.
@@ -16,7 +15,7 @@
 GitHub의 Ubuntu 실행기는 매번 새로 만들어지는 깨끗한 컴퓨터이고, Docker만 설치되어 있습니다. 여기서 README와 똑같이 `.env` 없이 `docker compose up -d --build`를 실행합니다. 그래서 이 단계가 통과하면 "Docker만 있는 다른 컴퓨터에서도 안내대로 실행된다"는 근거가 됩니다.
 
 1. 두 app 컨테이너가 모두 `/actuator/health/readiness` `UP`을 응답할 때까지 기다립니다(DB·Redis 연결 포함). nginx의 `X-Upstream` 헤더로 서로 다른 app 두 개를 구분합니다.
-2. 홈페이지(`/`)와 가구 이미지(`/api/assets/furniture-atlas.png`) 응답을 확인합니다.
+2. 홈페이지(`/`)와 가구 이미지(`/furniture-atlas.png`) 응답을 확인합니다.
 3. `/api/rankings`에 샘플 집 4채가 있고 1위가 햇살방인지 확인합니다.
 4. `/api/rankings?type=theme`의 콘셉트가 "비 오는 날의 집"인지 확인합니다.
 5. `scripts/multi-instance-smoke.mjs`로 앱 2개가 Redis로 상태를 공유하는지 확인합니다.
@@ -29,10 +28,10 @@ GitHub의 Ubuntu 실행기는 매번 새로 만들어지는 깨끗한 컴퓨터�
 ## GitHub에서 확인하기
 
 1. [저장소 Actions](https://github.com/dowooju/naranjip/actions)를 엽니다.
-2. `Test, publish and compose smoke` 실행을 선택합니다.
-3. `test`, `compose-smoke`가 초록색이면 통과입니다. PR에서는 `publish`가 실행되지 않는 것이 정상입니다.
+2. `Test and compose smoke` 실행을 선택합니다.
+3. `test`, `compose-smoke`가 초록색이면 통과입니다. 실패하면 실행 요약의 Annotations에 실패한 명령과 컨테이너 로그가 표시됩니다(로그인 없이 보임).
 
-이미지 업로드는 GitHub가 실행마다 제공하는 `GITHUB_TOKEN`을 사용하므로 별도 토큰이 필요 없습니다. 이미지 이름은 `ghcr.io/dowooju/naranjip:sha-전체커밋해시`입니다. 실행에는 이 이미지가 필요 없습니다. `docker compose up -d --build`가 저장소의 Dockerfile로 직접 빌드합니다.
+테스트는 CI에서만 실행합니다. Docker 이미지는 테스트 없이 패키징만 하므로 서버(EC2)에서 빌드가 빠릅니다. 이미지를 레지스트리에 올리지 않고, 서버에서 `docker compose up -d --build`로 저장소의 코드를 직접 빌드합니다.
 
 ## 실행 중인 앱 확인하기
 
@@ -57,5 +56,4 @@ docker compose restart app
 ## 공식 참고 자료
 
 - [Docker Compose](https://docs.docker.com/compose/)
-- [GitHub: Docker 이미지 게시](https://docs.github.com/en/actions/tutorials/publish-packages/publish-docker-images)
-- [GitHub: GHCR 사용](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
+- [GitHub Actions](https://docs.github.com/en/actions)

@@ -4,26 +4,29 @@ import com.naranjip.application.*;
 
 import java.util.concurrent.ConcurrentHashMap;
 
-
+/** 배치 규칙 단위 테스트용. JdbcHouseRepository처럼 읽을 때 복사본을 주고, 저장할 때 revision이 하나 앞서 있어야만 반영한다. */
 public class InMemoryHouseRepository implements HouseRepository {
     private final ConcurrentHashMap<String, HouseState> houses = new ConcurrentHashMap<>();
-    @Override public synchronized HouseState create(String id, String owner) {
-        HouseState existing = houses.get(id);
-        if (existing != null) { existing.touchedAt = System.currentTimeMillis(); return existing; }
-        long cutoff = System.currentTimeMillis() - 2 * 60 * 60 * 1000;
-        houses.entrySet().removeIf(entry -> entry.getValue().touchedAt < cutoff);
-        if (houses.size() >= 1000) throw new PlacementException("체험 중인 집이 많아요. 잠시 후 다시 시도해 주세요.");
-        HouseState house = new HouseState(id, owner);
-        houses.put(id, house);
-        return house;
+    private static HouseState copy(HouseState source) {
+        var copy = new HouseState(source.id, source.owner);
+        copy.revision = source.revision;
+        copy.furniture.addAll(source.furniture);
+        return copy;
+    }
+    @Override public HouseState create(String id, String owner) {
+        return copy(houses.computeIfAbsent(id, key -> new HouseState(key, owner)));
     }
     @Override public HouseState find(String id) {
         HouseState house = houses.get(id);
-        if (house == null) throw new PlacementException("집이 만료됐어요. 다시 로그인해 주세요.");
-        house.touchedAt = System.currentTimeMillis();
-        return house;
+        if (house == null) throw new PlacementException("집을 찾을 수 없어요.");
+        return copy(house);
     }
-    @Override public void save(HouseState house) {}
+    @Override public void save(HouseState house) {
+        houses.compute(house.id, (id, current) -> {
+            if (current == null || current.revision != house.revision - 1) throw new PlacementException("다른 창에서 집이 바뀌었어요. 최신 배치를 다시 불러옵니다.");
+            return copy(house);
+        });
+    }
     @Override public boolean isMember(String houseId,String accountId) { return houseId.equals(accountId); }
     @Override public void remove(String id) { houses.remove(id); }
 }

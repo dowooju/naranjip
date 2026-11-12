@@ -53,8 +53,4 @@ WebSocket(`/ws/edit`)은 Spring 기본 동일 출처 검사를 씁니다. 브라
 
 - LiveFlowTest: 동시 잠금 단일 승자, 부착물 잠금, REST 우회 방지, 다른 가구 동시 수정, 겹침 롤백, 커밋 후 전달, 로그아웃/접속 종료 해제, 접속권·CSRF·권한, 임시 위치 미저장.
 - NoteFlowTest: 공개/비공개, 커플 접근, 내용 길이·버전 충돌, 부모 이동·회전 보존, 명시적 삭제 시 연쇄 삭제.
-- scripts/live-browser-smoke.mjs: 테스트 DB에서 Chrome의 독립된 두 계정으로 실제 WebSocket과 편집 UI를 검증합니다. 실행 시 테스트 계정을 생성하므로 운영 DB에서 실행하지 않습니다.
-
-~~~powershell
-node scripts/live-browser-smoke.mjs http://localhost:8087 target/live-browser
-~~~
+- scripts/multi-instance-smoke.mjs: CI에서 실제 Compose 환경(nginx + 앱 2개 + Redis)으로 확인합니다(위 표 참고).

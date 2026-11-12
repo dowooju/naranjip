@@ -6,6 +6,4 @@
 .env
 .env.*
 !.env.example
-kubeconfig*
-*secret*.yaml
 /.tools/

@@ -8,7 +8,6 @@ public final class HouseState {
     public final String id;
     public final String owner;
     public long revision;
-    public volatile long touchedAt = System.currentTimeMillis();
     public final List<PlacedFurniture> furniture = new ArrayList<>();
     public HouseState(String id, String owner) { this.id = id; this.owner = owner; }
     public record PlacedFurniture(String id, String typeId, int x, int y, boolean rotation,

@@ -2,11 +2,9 @@ package com.naranjip.web;
 
 import com.naranjip.application.*;
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
-import java.io.IOException;
 import java.util.Map;
 
 @RestController
@@ -16,16 +14,11 @@ public class FurnitureController {
     private final LiveEditing live;
     private final FurnitureService service;
     private final FurnitureCatalog catalog;
-    private final AssetStorage assets;
-    public FurnitureController(AuthController auth, FurnitureService service, FurnitureCatalog catalog, AssetStorage assets, LiveEditing live) {
-        this.live=live; this.auth = auth; this.service = service; this.catalog = catalog; this.assets = assets;
+    public FurnitureController(AuthController auth, FurnitureService service, FurnitureCatalog catalog, LiveEditing live) {
+        this.live=live; this.auth = auth; this.service = service; this.catalog = catalog;
     }
     @GetMapping("/catalog") public Map<String, Object> catalog() {
-        return Map.of("items", catalog.all(), "atlasUrl", "/api/assets/furniture-atlas.png", "columns", 4, "rows", 3);
-    }
-    @GetMapping(value="/assets/furniture-atlas.png", produces=MediaType.IMAGE_PNG_VALUE)
-    public ResponseEntity<InputStreamResource> atlas() throws IOException {
-        return ResponseEntity.ok().cacheControl(CacheControl.noCache()).body(new InputStreamResource(assets.open("furniture-atlas.png")));
+        return Map.of("items", catalog.all(), "atlasUrl", "/furniture-atlas.png", "columns", 4, "rows", 3);
     }
     @PostMapping("/houses/{houseId}/furniture")
     public HouseState.Snapshot add(@PathVariable String houseId, @RequestBody FurnitureService.Placement placement, HttpServletRequest request) {
