@@ -16,19 +16,38 @@
 
 POST /api/live/ticket은 로그인·집 멤버십·CSRF를 검사한 뒤 세션에 묶인 30초짜리 일회용 접속권을 반환합니다. /ws/edit는 이를 소비하고 동일 출처 WebSocket만 허용합니다. 접속 중에도 세션과 멤버십을 재검사하며 로그아웃 시 연결을 종료합니다.
 
-LiveEditing이 연결·잠금·임시 위치를 메모리에서 관리합니다. 가구 REST 쓰기와 잠금 획득이 같은 동기화 경계를 사용하므로 REST 직접 호출로 상대방 잠금을 우회할 수 없습니다. DB 트랜잭션 커밋 이후에만 snapshot을 전송합니다. 잠금 보유자의 배치 요청은 최신 집 revision 기준으로 검증하여 다른 가구의 정상 수정을 불필요하게 거절하지 않습니다. 잠금 없는 기존 REST 요청에는 기존 revision 검사가 유지됩니다.
+LiveEditing은 자기 app에 연결된 WebSocket만 들고 있습니다. 접속권·잠금·접속자·브로드캐스트는 `LiveStore`로 공유합니다. 운영은 Redis(`RedisLiveStore`)를 쓰고, 테스트는 같은 규칙의 메모리 구현(`MemoryLiveStore`)을 씁니다. 가구 REST 쓰기는 요청이 어느 app에 들어오든 공유된 잠금을 확인하므로, REST 직접 호출로 상대방 잠금을 우회할 수 없습니다. DB 트랜잭션 커밋 이후에만 snapshot을 전송합니다. 잠금 보유자의 배치 요청은 최신 집 revision 기준으로 검증하여 다른 가구의 정상 수정을 불필요하게 거절하지 않습니다. 잠금 없는 기존 REST 요청에는 기존 revision 검사가 유지됩니다.
 
 브라우저는 4초마다 연결 확인 메시지를 보냅니다. 편집 잠금은 15초 임대이며 정상 연결 중 갱신합니다. 연결 종료 즉시 해제하고, 비정상 단절은 임대 만료/20초 무응답 감지로 정리합니다. 메시지 크기와 전송 버퍼에 상한을 둡니다.
 
 snapshot에는 가구 배치만 포함합니다. 쪽지 본문은 공개 여부를 검사하는 별도 API에서 조회합니다. 프런트는 revision이 낮은 응답을 무시해 늦게 도착한 HTTP 응답이 최신 WebSocket 배치를 되돌리지 않도록 합니다.
 
-## 운영 범위
+## 앱 여러 개에서 함께 편집하기
 
-현재 Docker Compose의 앱 컨테이너는 **1개**입니다. 여러 사용자/집을 지원하지만, 편집 잠금은 앱 한 인스턴스에서 관리하므로 그대로 복제본을 늘리면 안 됩니다. 다중 인스턴스 확장 시 Redis 등의 공유 임대 잠금·이벤트 전달과 공유 세션 저장소를 함께 도입해야 합니다.
+Docker Compose는 nginx 뒤에 app 컨테이너 **2개**를 띄웁니다. nginx는 요청과 WebSocket 연결을 번갈아 나눠 보내므로, 커플 두 사람이 서로 다른 app에 연결될 수 있습니다.
 
-앱 재시작 시 세션과 임시 잠금은 사라지므로 다시 로그인해야 합니다. 저장된 집과 쪽지는 PostgreSQL에 유지됩니다. 외부 프록시를 추가할 때는 WebSocket Upgrade 전달과 연결 제한 시간도 설정합니다.
+| 공유 대상 | Redis 키 | 하는 일 |
+| --- | --- | --- |
+| 로그인 세션 | `naranjip:session:*` (Spring Session) | 어느 app이 요청을 받아도 같은 로그인·CSRF 토큰 |
+| 접속권 | `live:ticket:{id}` (30초 뒤 자동 삭제) | app #1에서 발급받고 app #2로 WebSocket 연결 가능, 한 번 쓰면 삭제 |
+| 편집 잠금 | `live:leases:{집}` 해시 | 가구 묶음별 잠금. Lua 스크립트로 확인과 저장을 한 번에 해서 동시에 잡아도 한 명만 성공 |
+| 접속자 | `live:members:{집}` 해시 | 상단 "함께 꾸미는 사람" 표시, REST 저장 시 `X-Live-Client` 확인 |
+| 실시간 메시지 | `live:events` Pub/Sub 채널 | snapshot·미리보기·presence를 모든 app에 전달하면, 각 app이 자기 WebSocket에 보냄 |
 
-WebSocket(`/ws/edit`)은 Spring 기본 동일 출처 검사를 씁니다. 브라우저가 보낸 `Origin`을 요청의 `Host`와 비교하므로 `localhost`뿐 아니라 `http://서버-IP:8080`처럼 직접 접속한 주소에서도 별도 설정 없이 동작합니다. CSRF는 세션의 토큰으로 검사하며 주소를 따지지 않습니다. 앞에 nginx 같은 프록시를 둘 때는 `Host` 헤더를 그대로 전달해야 합니다.
+- 잠금과 접속자 항목에는 만료 시각이 있습니다. 연결된 app이 4초마다 갱신합니다. app이 갑자기 죽으면 갱신이 멈추고, 다른 app이 15~30초 안에 정리해 상대 화면에서도 잠금이 풀립니다.
+- 로그아웃은 Redis의 세션을 지웁니다. 각 app은 1초마다 자기 연결의 세션을 확인하므로, 다른 app에 연결된 WebSocket도 바로 끊깁니다.
+- 같은 집에 동시에 저장하면 DB의 `houses` 행 잠금(`SELECT ... FOR UPDATE`)과 revision 검사가 순서를 정합니다. 브라우저는 revision이 낮은 snapshot을 무시합니다.
+- 앱을 재시작해도 세션은 Redis에 있어 로그인이 유지됩니다. 편집 중인 잠금은 연결이 끊기면서 풀리고, 브라우저가 자동으로 다시 연결합니다. Redis 컨테이너를 다시 만들면 세션이 사라져 다시 로그인해야 합니다. 저장된 집과 쪽지는 PostgreSQL에 유지됩니다.
+- nginx(`nginx.conf`)는 WebSocket Upgrade 헤더와 접속 주소(Host)를 그대로 전달합니다. 브라우저가 4초마다 ping을 보내므로 60초 읽기 제한에 걸리지 않습니다.
+- 검증: `LiveFlowTest.twoServersShareLocksPreviewsAndSnapshots`가 앱 두 개를 흉내 냅니다. CI에서는 `scripts/multi-instance-smoke.mjs`가 실제 Compose 환경(nginx + app 2개 + Redis)에서 확인합니다. 직접 실행하려면:
+
+~~~bash
+node scripts/multi-instance-smoke.mjs http://localhost:8080
+~~~
+
+테스트 계정을 하나 만들므로 실제 사용자가 있는 서버에서는 실행하지 않습니다.
+
+WebSocket(`/ws/edit`)은 Spring 기본 동일 출처 검사를 씁니다. 브라우저가 보낸 `Origin`을 요청의 `Host`와 비교하므로 `localhost`뿐 아니라 `http://서버-IP:8080`처럼 직접 접속한 주소에서도 별도 설정 없이 동작합니다. CSRF는 세션의 토큰으로 검사하며 주소를 따지지 않습니다. 이를 위해 nginx는 `Host` 헤더를 그대로 전달합니다.
 
 ## 검증
 

@@ -5,7 +5,7 @@
 ```text
 코드 수정 → git push (main 또는 PR)
   → test: Java 21로 ./mvnw verify, Node 배치·입력 검증 테스트
-  → compose-smoke: 깨끗한 Ubuntu에서 docker compose up -d --build 후 실제 접속 확인
+  → compose-smoke: 깨끗한 Ubuntu에서 docker compose up -d --build 후 실제 접속, 앱 2개 공유 확인
   → publish (main 푸시만): Docker 이미지를 GHCR에 저장
 ```
 
@@ -15,12 +15,16 @@
 
 GitHub의 Ubuntu 실행기는 매번 새로 만들어지는 깨끗한 컴퓨터이고, Docker만 설치되어 있습니다. 여기서 README와 똑같이 `.env` 없이 `docker compose up -d --build`를 실행합니다. 그래서 이 단계가 통과하면 "Docker만 있는 다른 컴퓨터에서도 안내대로 실행된다"는 근거가 됩니다.
 
-1. `/actuator/health/readiness`가 `UP`이 될 때까지 기다립니다(DB 연결 포함).
+1. 두 app 컨테이너가 모두 `/actuator/health/readiness` `UP`을 응답할 때까지 기다립니다(DB·Redis 연결 포함). nginx의 `X-Upstream` 헤더로 서로 다른 app 두 개를 구분합니다.
 2. 홈페이지(`/`)와 가구 이미지(`/api/assets/furniture-atlas.png`) 응답을 확인합니다.
 3. `/api/rankings`에 샘플 집 4채가 있고 1위가 햇살방인지 확인합니다.
 4. `/api/rankings?type=theme`의 콘셉트가 "비 오는 날의 집"인지 확인합니다.
-5. `docker compose down` 후 다시 `up` 했을 때 데이터가 남아 있고 샘플이 중복 생성되지 않는지 확인합니다.
-6. 마지막에 `docker compose down -v`로 정리합니다. 실패하면 컨테이너 로그를 출력합니다.
+5. `scripts/multi-instance-smoke.mjs`로 앱 2개가 Redis로 상태를 공유하는지 확인합니다.
+   - 로그인 상태가 두 app 모두에서 유지되는지 봅니다.
+   - 서로 다른 app에 붙은 두 WebSocket 사이에서 잠금이 한 명만 되는지, 드래그 미리보기와 저장 결과가 전달되는지 봅니다.
+   - 로그아웃하면 두 연결이 모두 끊기는지 봅니다.
+6. `docker compose down` 후 다시 `up` 했을 때 데이터가 남아 있고 샘플이 중복 생성되지 않는지 확인합니다.
+7. 마지막에 `docker compose down -v`로 정리합니다. 실패하면 컨테이너 로그를 출력합니다.
 
 ## GitHub에서 확인하기
 
@@ -44,7 +48,7 @@ docker compose logs app --tail=100
 docker compose restart app
 ```
 
-코드를 바꾼 뒤에는 `docker compose up -d --build`를 다시 실행하면 새 이미지로 앱만 교체됩니다. DB 데이터는 유지됩니다.
+코드를 바꾼 뒤에는 `docker compose up -d --build`를 다시 실행하면 새 이미지로 app 컨테이너만 교체됩니다. DB 데이터와 로그인 세션은 유지됩니다. 로그는 app 두 개가 섞여 나오며 줄 앞의 `app-1`, `app-2`로 구분합니다.
 
 ## 이전 방식(Kubernetes)
 
