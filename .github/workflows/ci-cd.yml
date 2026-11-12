@@ -103,7 +103,8 @@ jobs:
           docker compose up -d
           bash scripts/wait-ready.sh http://localhost:8080
           curl -fsS http://localhost:8080/api/rankings > rankings.json
-          jq -e '(.houses | length) == 4' rankings.json
+          # 앞 단계의 스모크 테스트 계정 집도 순위에 있으므로 샘플 집 4채만 센다(중복 생성되면 4보다 많아짐).
+          jq -e '[.houses[].house.residents | select(IN("햇살방","구름집","달빛집","솔바람집"))] | length == 4' rankings.json
       - name: Logs on failure
         if: failure()
         run: |
