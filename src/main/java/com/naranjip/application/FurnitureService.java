@@ -84,8 +84,8 @@ public class FurnitureService {
         }
         PlacedFurniture placed = new PlacedFurniture(old == null ? UUID.randomUUID().toString() : old.id(),
             typeId, x, y, type.kind().equals("attachment") ? false : request.rotation(), wall, parentId, slot);
-        if (old != null) house.furniture.remove(old);
-        house.furniture.add(placed);
+        if (old != null) house.furniture.set(house.furniture.indexOf(old), placed);
+        else house.furniture.add(placed);
         house.revision++;
         repository.save(house);
         return snapshot(house);
