@@ -5,7 +5,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.Comparator;
+import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Repository
 public class JdbcHouseRepository implements HouseRepository {
@@ -40,6 +43,7 @@ public class JdbcHouseRepository implements HouseRepository {
             (rs,index) -> new HouseState.PlacedFurniture(rs.getObject("id",UUID.class).toString(), rs.getString("type_id"),
                 rs.getInt("x"),rs.getInt("y"),rs.getBoolean("rotation"),rs.getString("wall"),
                 rs.getObject("parent_id")==null?null:rs.getObject("parent_id",UUID.class).toString(),rs.getInt("slot")),key));
+        house.saved.addAll(house.furniture);
         return house;
     }
 
@@ -48,19 +52,27 @@ public class JdbcHouseRepository implements HouseRepository {
         int changed=jdbc.update("UPDATE houses SET revision=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND revision=?",
             house.revision,key,house.revision-1);
         if(changed!=1)throw new PlacementException("다른 창에서 집이 바뀌었어요. 최신 배치를 다시 불러옵니다.");
-        // Retain furniture identities so attached content survives moves and rotations.
-        var retained=house.furniture.stream().map(item->UUID.fromString(item.id())).collect(java.util.stream.Collectors.toSet());
-        for(UUID old:jdbc.queryForList("SELECT id FROM placed_furniture WHERE house_id=?",UUID.class,key)) {
-            if(!retained.contains(old))jdbc.update("DELETE FROM placed_furniture WHERE id=? AND house_id=?",old,key);
+        // 바뀐 가구 행만 쓴다: 없어진 가구는 DELETE, 새 가구는 INSERT, 위치·방향·부착이 바뀐 가구만 UPDATE.
+        // 행을 지우지 않고 갱신하므로 냉장고를 옮겨도 붙어 있는 쪽지 내용(note_contents)이 유지된다.
+        Map<String,HouseState.PlacedFurniture> before=house.saved.stream().collect(Collectors.toMap(HouseState.PlacedFurniture::id,Function.identity()));
+        var after=house.furniture.stream().map(HouseState.PlacedFurniture::id).collect(Collectors.toSet());
+        for(var old:house.saved) {
+            if(!after.contains(old.id()))jdbc.update("DELETE FROM placed_furniture WHERE id=? AND house_id=?",UUID.fromString(old.id()),key);
         }
-        var ordered=house.furniture.stream().sorted(Comparator.comparing(item -> item.parentId()!=null)).toList();
-        for(var item:ordered) {
-            int updated=jdbc.update("UPDATE placed_furniture SET x=?,y=?,rotation=?,wall=?,parent_id=?,slot=?,sort_order=? WHERE id=? AND house_id=?",
-                item.x(),item.y(),item.rotation(),item.wall(),item.parentId()==null?null:UUID.fromString(item.parentId()),item.slot(),house.furniture.indexOf(item),UUID.fromString(item.id()),key);
-            if(updated==0)jdbc.update("INSERT INTO placed_furniture(id,house_id,type_id,x,y,rotation,wall,parent_id,slot,sort_order) VALUES (?,?,?,?,?,?,?,?,?,?)",
-                UUID.fromString(item.id()),key,item.typeId(),item.x(),item.y(),item.rotation(),item.wall(),
-                item.parentId()==null?null:UUID.fromString(item.parentId()),item.slot(),house.furniture.indexOf(item));
+        // 부모 가구를 먼저 넣어야 액자·쪽지의 parent_id 외래 키가 맞는다.
+        for(var item:house.furniture.stream().sorted(Comparator.comparing(item -> item.parentId()!=null)).toList()) {
+            var previous=before.get(item.id());
+            UUID parent=item.parentId()==null?null:UUID.fromString(item.parentId());
+            if(previous==null) {
+                int order=jdbc.queryForObject("SELECT COALESCE(MAX(sort_order),-1)+1 FROM placed_furniture WHERE house_id=?",Integer.class,key);
+                jdbc.update("INSERT INTO placed_furniture(id,house_id,type_id,x,y,rotation,wall,parent_id,slot,sort_order) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                    UUID.fromString(item.id()),key,item.typeId(),item.x(),item.y(),item.rotation(),item.wall(),parent,item.slot(),order);
+            } else if(!previous.equals(item)) {
+                jdbc.update("UPDATE placed_furniture SET x=?,y=?,rotation=?,wall=?,parent_id=?,slot=? WHERE id=? AND house_id=?",
+                    item.x(),item.y(),item.rotation(),item.wall(),parent,item.slot(),UUID.fromString(item.id()),key);
+            }
         }
+        house.saved.clear();house.saved.addAll(house.furniture);
     }
     @Override @Transactional public void remove(String id) { jdbc.update("DELETE FROM houses WHERE id=?",UUID.fromString(id)); }
     @Override public boolean isMember(String houseId,String accountId) {
